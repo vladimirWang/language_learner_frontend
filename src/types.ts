@@ -1,0 +1,83 @@
+export type Lang = 'de' | 'en' | 'ja'
+
+export interface LangOption {
+  value: Lang
+  label: string
+}
+
+export const LANGS: LangOption[] = [
+  { value: 'de', label: '德语' },
+  { value: 'en', label: '英语' },
+  { value: 'ja', label: '日语' },
+]
+
+export function langLabel(lang: string): string {
+  return LANGS.find((item) => item.value === lang)?.label ?? lang
+}
+
+export interface Health {
+  status: string
+  available_mb: number
+  build_busy: boolean
+  postgres: string
+}
+
+export interface Artifact {
+  url: string
+  md5: string
+}
+
+export interface VersionInfo {
+  lang: string
+  version: string
+  ground_truth: Artifact
+  vector_snapshot: Artifact
+  created_at: string
+}
+
+export interface TriggerResult {
+  lang: string
+  version: string
+  status: string
+}
+
+export interface BuildLog {
+  stage: string
+  level: string
+  message: string
+  created_at: string
+}
+
+export interface BuildStatus {
+  version: string
+  lang: string
+  status: string
+  db_url: string
+  vector_snapshot_url: string
+  db_md5: string
+  vector_md5: string
+  created_at: string
+  logs: BuildLog[]
+}
+
+export interface RecentBuild {
+  version: string
+  lang: string
+  createdAt: string
+}
+
+export interface RepoStatus {
+  lang: string
+  repo_url: string
+  latest_commit: string
+  latest_commit_short: string
+  last_build_version: string | null
+  last_build_commit: string
+  last_build_at?: string
+  pending: boolean
+  error?: string
+}
+
+export interface ReposResponse {
+  repos: RepoStatus[]
+}
