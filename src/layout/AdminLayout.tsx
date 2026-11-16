@@ -1,10 +1,11 @@
-import { CloudDownloadOutlined, DashboardOutlined, ToolOutlined } from '@ant-design/icons'
+import { AudioOutlined, CloudDownloadOutlined, DashboardOutlined, ToolOutlined } from '@ant-design/icons'
 import { Layout, Menu, Typography, type MenuProps } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 const menuItems: MenuProps['items'] = [
   { key: '/', icon: <DashboardOutlined />, label: '概览' },
   { key: '/builds', icon: <ToolOutlined />, label: '构建任务' },
+  { key: '/listening', icon: <AudioOutlined />, label: '听力导入' },
   { key: '/versions', icon: <CloudDownloadOutlined />, label: '版本查询' },
 ]
 

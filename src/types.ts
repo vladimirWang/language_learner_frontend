@@ -81,3 +81,40 @@ export interface RepoStatus {
 export interface ReposResponse {
   repos: RepoStatus[]
 }
+
+export interface ListeningJob {
+  job_id: string
+  exam_id: string
+  lang: string
+  source_url: string
+  status: string // pending / running / built / failed
+  manifest_path: string
+  log_path: string
+  error_msg: string
+  last_log_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ListeningJobLog {
+  stage: string
+  level: string
+  message: string
+  created_at: string
+}
+
+export interface ListeningImportResult {
+  job_id: string
+  exam_id: string
+  lang: string
+  status: string
+}
+
+export interface ListeningJobsResponse {
+  jobs: ListeningJob[]
+}
+
+export interface ListeningJobDetailResponse {
+  job: ListeningJob
+  logs: ListeningJobLog[]
+}
