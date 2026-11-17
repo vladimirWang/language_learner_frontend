@@ -1,18 +1,32 @@
-import { AudioOutlined, CloudDownloadOutlined, DashboardOutlined, ToolOutlined } from '@ant-design/icons'
+import {
+  AudioOutlined,
+  CloudDownloadOutlined,
+  DashboardOutlined,
+  ToolOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons'
 import { Layout, Menu, Typography, type MenuProps } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 
 const menuItems: MenuProps['items'] = [
   { key: '/', icon: <DashboardOutlined />, label: '概览' },
   { key: '/builds', icon: <ToolOutlined />, label: '构建任务' },
-  { key: '/listening', icon: <AudioOutlined />, label: '听力导入' },
+  {
+    key: '/listening',
+    icon: <AudioOutlined />,
+    label: '听力导入',
+    children: [
+      { key: '/listening', icon: <AudioOutlined />, label: '新建导入' },
+      { key: '/listening/jobs', icon: <UnorderedListOutlined />, label: '任务列表' },
+    ],
+  },
   { key: '/versions', icon: <CloudDownloadOutlined />, label: '版本查询' },
 ]
 
 export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
-  const selectedKey = location.pathname === '/' ? '/' : `/${location.pathname.split('/')[1]}`
+  const selectedKey = location.pathname.startsWith('/listening') ? location.pathname : location.pathname === '/' ? '/' : `/${location.pathname.split('/')[1]}`
 
   return (
     <Layout className="app-shell">
@@ -25,6 +39,7 @@ export default function AdminLayout() {
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
+          defaultOpenKeys={['/listening']}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />
