@@ -2,6 +2,7 @@ import type {
   BuildStatus,
   Health,
   Lang,
+  ListeningFilesResponse,
   ListeningImportResult,
   ListeningJobDetailResponse,
   ListeningJobsResponse,
@@ -83,6 +84,14 @@ export const api = {
 
   listeningJobDetail: (jobId: string) =>
     request<ListeningJobDetailResponse>(`/api/listening/job/${encodeURIComponent(jobId)}`),
+
+  listeningJobFiles: (jobId: string) =>
+    request<ListeningFilesResponse>(`/api/listening/job/${encodeURIComponent(jobId)}/files`),
+}
+
+/** 拼出可直接用于 <a download> 的完整地址（含 VITE_API_BASE 前缀）。 */
+export function apiUrl(path: string): string {
+  return `${API_BASE}${path}`
 }
 
 export function errorMessage(error: unknown): string {

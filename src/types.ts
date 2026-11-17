@@ -91,7 +91,7 @@ export interface ListeningJob {
   manifest_path: string
   log_path: string
   error_msg: string
-  last_log_at?: string
+  last_log_at?: string | null
   created_at: string
   updated_at: string
 }
@@ -117,4 +117,15 @@ export interface ListeningJobsResponse {
 export interface ListeningJobDetailResponse {
   job: ListeningJob
   logs: ListeningJobLog[]
+}
+
+export interface ListeningFile {
+  path: string
+  name: string
+  size: number
+}
+
+export interface ListeningFilesResponse {
+  exam_id: string
+  files: ListeningFile[]
 }

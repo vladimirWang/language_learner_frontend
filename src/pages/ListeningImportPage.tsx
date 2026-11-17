@@ -1,5 +1,7 @@
 import {
   AudioOutlined,
+  DownloadOutlined,
+  FileTextOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
   UploadOutlined,
@@ -13,8 +15,10 @@ import {
   Col,
   Descriptions,
   Drawer,
+  Empty,
   Form,
   Input,
+  List,
   Row,
   Select,
   Space,
@@ -25,11 +29,12 @@ import {
   type TableProps,
 } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
-import { api, errorMessage, formatTime } from '../api'
+import { api, apiUrl, errorMessage, formatTime } from '../api'
 import {
   LANGS,
   langLabel,
   type Lang,
+  type ListeningFile,
   type ListeningJob,
   type ListeningJobDetailResponse,
   type ListeningJobLog,
@@ -43,6 +48,12 @@ function jobStatusColor(status: string): string {
   return 'default'
 }
 
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
 function logLevelColor(level: string): string {
   if (level === 'error') return 'red'
   if (level === 'warn' || level === 'warning') return 'orange'
@@ -50,7 +61,7 @@ function logLevelColor(level: string): string {
 }
 
 /** 把 ISO 时间转为 "X秒前 / X分钟前"；空值返回 "—" */
-function secondsAgo(iso?: string): string {
+function secondsAgo(iso?: string | null): string {
   if (!iso) return '—'
   const t = new Date(iso).getTime()
   if (Number.isNaN(t)) return '—'
@@ -152,6 +163,10 @@ export default function ListeningImportPage() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [detailJobId, setDetailJobId] = useState<string>('')
 
+  // 任务产物文件（视频 / 转写 / 音频 / 图片）
+  const [files, setFiles] = useState<ListeningFile[]>([])
+  const [loadingFiles, setLoadingFiles] = useState(false)
+
   // 每秒更新一次，用于"距上次活动 X 秒"的实时计算
   const [nowTick, setNowTick] = useState(() => Date.now())
   useEffect(() => {
@@ -207,6 +222,44 @@ export default function ListeningImportPage() {
       if (timer) window.clearTimeout(timer)
     }
   }, [detailOpen, detailJobId])
+
+  // 详情打开后加载可下载产物（视频 / 转写 / 音频 / 图片）
+  useEffect(() => {
+    if (!detailOpen || !detailJobId) {
+      setFiles([])
+      return
+    }
+    let cancelled = false
+    setLoadingFiles(true)
+    api
+      .listeningJobFiles(detailJobId)
+      .then((res) => {
+        if (!cancelled) setFiles(res.files)
+      })
+      .catch(() => {
+        if (!cancelled) setFiles([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingFiles(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [detailOpen, detailJobId, detail?.job.status])
+
+  const sortedFiles = useMemo(() => {
+    const weight = (path: string) => {
+      if (path.startsWith('source/')) return 0
+      if (path.startsWith('transcript')) return 1
+      if (path === 'manifest.json') return 2
+      if (path.startsWith('audio/')) return 3
+      if (path.startsWith('images/')) return 4
+      return 5
+    }
+    return [...files].sort(
+      (a, b) => weight(a.path) - weight(b.path) || a.path.localeCompare(b.path),
+    )
+  }, [files])
 
   const onSubmit = async (values: ImportFormValues) => {
     if (!values.url.trim()) {
@@ -551,6 +604,69 @@ export default function ListeningImportPage() {
                   : []),
               ]}
             />
+
+            <Card
+              size="small"
+              title={
+                <Space>
+                  <DownloadOutlined />
+                  产物下载
+                </Space>
+              }
+              extra={
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<DownloadOutlined />}
+                  href={apiUrl(
+                    `/api/listening/job/${encodeURIComponent(detailJobId)}/archive`,
+                  )}
+                >
+                  打包下载 zip
+                </Button>
+              }
+            >
+              {loadingFiles ? (
+                <Typography.Text type="secondary">加载文件列表…</Typography.Text>
+              ) : sortedFiles.length === 0 ? (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description="暂无产物文件（任务未完成或目录为空）"
+                />
+              ) : (
+                <List
+                  size="small"
+                  dataSource={sortedFiles}
+                  style={{ maxHeight: 260, overflowY: 'auto' }}
+                  renderItem={(file) => (
+                    <List.Item
+                      actions={[
+                        <Button
+                          key="download"
+                          type="link"
+                          size="small"
+                          href={apiUrl(
+                            `/api/listening/job/${encodeURIComponent(detailJobId)}/download?path=${encodeURIComponent(file.path)}`,
+                          )}
+                        >
+                          下载
+                        </Button>,
+                      ]}
+                    >
+                      <Space size={8}>
+                        <FileTextOutlined />
+                        <Typography.Text style={{ wordBreak: 'break-all' }}>
+                          {file.path}
+                        </Typography.Text>
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          {formatSize(file.size)}
+                        </Typography.Text>
+                      </Space>
+                    </List.Item>
+                  )}
+                />
+              )}
+            </Card>
 
             <Typography.Text strong>运行日志（共 {detail.logs.length} 条）</Typography.Text>
             <Table<ListeningJobLog>
