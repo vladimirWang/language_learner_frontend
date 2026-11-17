@@ -1,5 +1,6 @@
 import {
   AudioOutlined,
+  CheckCircleOutlined,
   DownloadOutlined,
   FileTextOutlined,
   PlayCircleOutlined,
@@ -166,6 +167,11 @@ export default function ListeningImportPage() {
   // 任务产物文件（视频 / 转写 / 音频 / 图片）
   const [files, setFiles] = useState<ListeningFile[]>([])
   const [loadingFiles, setLoadingFiles] = useState(false)
+  const [downloadingZip, setDownloadingZip] = useState(false)
+  const [uploadingAnswers, setUploadingAnswers] = useState(false)
+  const [submittedAnswers, setSubmittedAnswers] = useState<
+    { number: number; answer: string }[]
+  >([])
 
   // 每秒更新一次，用于"距上次活动 X 秒"的实时计算
   const [nowTick, setNowTick] = useState(() => Date.now())
@@ -261,6 +267,33 @@ export default function ListeningImportPage() {
     )
   }, [files])
 
+  const handleDownloadZip = async () => {
+    if (downloadingZip || loadingFiles || !detail?.job) return
+    setDownloadingZip(true)
+    try {
+      // 先调 files 接口确保 zip 已生成（后端会原子 rename，不会半成品）
+      await api.listeningJobFiles(detailJobId)
+      const url = apiUrl(
+        `/api/listening/job/${encodeURIComponent(
+          detailJobId,
+        )}/download?path=${encodeURIComponent(`${detail.job.exam_id}.zip`)}`,
+      )
+      // 用浏览器原生 <a download> 触发下载，比 fetch+blob 更稳定
+      // （大文件 fetch 需全部读入内存，中途断连即 ERR_FAILED）
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${detail.job.exam_id}.zip`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      // 给浏览器一点时间发起下载请求再恢复按钮
+      setTimeout(() => setDownloadingZip(false), 1500)
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : '下载失败')
+      setDownloadingZip(false)
+    }
+  }
+
   const onSubmit = async (values: ImportFormValues) => {
     if (!values.url.trim()) {
       message.warning('请输入音视频 URL')
@@ -299,6 +332,7 @@ export default function ListeningImportPage() {
   const openDetail = (jobId: string) => {
     setDetailJobId(jobId)
     setDetail(null)
+    setSubmittedAnswers([])
     setDetailOpen(true)
   }
 
@@ -618,11 +652,15 @@ export default function ListeningImportPage() {
                   type="primary"
                   size="small"
                   icon={<DownloadOutlined />}
-                  href={apiUrl(
-                    `/api/listening/job/${encodeURIComponent(detailJobId)}/archive`,
-                  )}
+                  loading={downloadingZip || loadingFiles}
+                  disabled={downloadingZip || loadingFiles || !detail?.job}
+                  onClick={handleDownloadZip}
                 >
-                  打包下载 zip
+                  {downloadingZip
+                    ? '正在打包…'
+                    : loadingFiles
+                      ? '准备中…'
+                      : '打包下载 zip'}
                 </Button>
               }
             >
@@ -666,6 +704,62 @@ export default function ListeningImportPage() {
                   )}
                 />
               )}
+            </Card>
+
+            <Card
+              size="small"
+              title={
+                <Space>
+                  <CheckCircleOutlined />
+                  补充答案
+                </Space>
+              }
+              style={{ marginTop: 12 }}
+            >
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
+                管理员下载整套文件后人工听题，将答案整理为 CSV（格式：
+                <Typography.Text code>题号,答案</Typography.Text>，答案为 A/B/C/D），上传后自动写入 manifest。
+              </Typography.Paragraph>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Upload
+                  accept=".csv"
+                  showUploadList={false}
+                  beforeUpload={(file) => {
+                    const formData = new FormData()
+                    formData.append('answers', file)
+                    setUploadingAnswers(true)
+                    api
+                      .updateListeningAnswers(detailJobId, formData)
+                      .then((res) => {
+                        setSubmittedAnswers(res.answers.sort((a, b) => a.number - b.number))
+                        message.success(`已绑定 ${res.updated_count} 题答案`)
+                      })
+                      .catch((err) => message.error(errorMessage(err)))
+                      .finally(() => setUploadingAnswers(false))
+                    return false
+                  }}
+                >
+                  <Button
+                    type="primary"
+                    icon={<UploadOutlined />}
+                    loading={uploadingAnswers}
+                  >
+                    上传答案 CSV
+                  </Button>
+                </Upload>
+                {submittedAnswers.length > 0 && (
+                  <div style={{ fontSize: 13 }}>
+                    <Typography.Text strong>已绑定答案（{submittedAnswers.length} 题）：</Typography.Text>
+                    <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {submittedAnswers.map((a) => (
+                        <Tag key={a.number} color="blue">
+                          第{a.number}题 → {a.answer}
+                        </Tag>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Space>
             </Card>
 
             <Typography.Text strong>运行日志（共 {detail.logs.length} 条）</Typography.Text>

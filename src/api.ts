@@ -87,6 +87,12 @@ export const api = {
 
   listeningJobFiles: (jobId: string) =>
     request<ListeningFilesResponse>(`/api/listening/job/${encodeURIComponent(jobId)}/files`),
+
+  updateListeningAnswers: (jobId: string, formData: FormData) =>
+    requestForm<{ updated_count: number; answers: { number: number; answer: string }[] }>(
+      `/api/listening/job/${encodeURIComponent(jobId)}/answers`,
+      formData,
+    ),
 }
 
 /** 拼出可直接用于 <a download> 的完整地址（含 VITE_API_BASE 前缀）。 */
