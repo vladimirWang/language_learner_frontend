@@ -393,6 +393,12 @@ export default function LevelsPage() {
                   dataSource={availableExams}
                   columns={[
                     {
+                      title: '名称',
+                      dataIndex: 'name',
+                      ellipsis: true,
+                      render: (_: unknown, record: AvailableExam) => record.name || record.exam_id,
+                    },
+                    {
                       title: 'Exam ID',
                       dataIndex: 'exam_id',
                       render: (v: string) => <Typography.Text copyable>{v}</Typography.Text>,

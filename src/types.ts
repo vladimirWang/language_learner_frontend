@@ -85,6 +85,7 @@ export interface ReposResponse {
 export interface ListeningJob {
   job_id: string
   exam_id: string
+  name?: string | null
   lang: string
   source_url: string
   status: string // pending / running / built / failed
@@ -165,6 +166,7 @@ export interface LevelsResponse {
 
 export interface AvailableExam {
   exam_id: string
+  name?: string | null
   lang: string
   source_url: string
   created_at: string

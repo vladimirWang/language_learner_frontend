@@ -97,6 +97,12 @@ export const api = {
       formData,
     ),
 
+  updateListeningJobName: (jobId: string, name: string) =>
+    request<{ ok: boolean }>(`/api/listening/job/${encodeURIComponent(jobId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    }),
+
   deleteListeningJob: (jobId: string) =>
     request<{ ok: boolean }>(`/api/listening/job/${encodeURIComponent(jobId)}`, {
       method: 'DELETE',

@@ -2,6 +2,7 @@ import {
   CheckCircleOutlined,
   DeleteOutlined,
   DownloadOutlined,
+  EditOutlined,
   FileTextOutlined,
   ReloadOutlined,
   UploadOutlined,
@@ -15,7 +16,9 @@ import {
   Descriptions,
   Drawer,
   Empty,
+  Input,
   List,
+  Modal,
   Popconfirm,
   Space,
   Table,
@@ -140,6 +143,10 @@ export default function ListeningJobsPage() {
   const [uploadingAnswers, setUploadingAnswers] = useState(false)
   const [submittedAnswers, setSubmittedAnswers] = useState<{ number: number; answer: string }[]>([])
 
+  const [renameJob, setRenameJob] = useState<ListeningJob | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [savingName, setSavingName] = useState(false)
+
   const [nowTick, setNowTick] = useState(() => Date.now())
   useEffect(() => {
     const t = window.setInterval(() => setNowTick(Date.now()), 1000)
@@ -251,7 +258,44 @@ export default function ListeningJobsPage() {
     setDetailOpen(true)
   }
 
+  const openRename = (job: ListeningJob) => {
+    setRenameJob(job)
+    setRenameValue(job.name ?? '')
+  }
+
+  const handleRename = async () => {
+    if (!renameJob || savingName) return
+    const jobId = renameJob.job_id
+    const name = renameValue.trim()
+    setSavingName(true)
+    try {
+      await api.updateListeningJobName(jobId, name)
+      const savedName = name || null
+      setJobs((prev) => prev.map((job) => (job.job_id === jobId ? { ...job, name: savedName } : job)))
+      setDetail((prev) =>
+        prev?.job.job_id === jobId ? { ...prev, job: { ...prev.job, name: savedName } } : prev,
+      )
+      setRenameJob(null)
+      message.success(name ? '名称已更新' : '已恢复使用 Exam ID')
+    } catch (error) {
+      message.error('改名失败：' + errorMessage(error))
+    } finally {
+      setSavingName(false)
+    }
+  }
+
   const jobColumns: TableProps<ListeningJob>['columns'] = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      width: 180,
+      ellipsis: true,
+      render: (_: unknown, record: ListeningJob) => (
+        <Typography.Text strong={!!record.name} type={record.name ? undefined : 'secondary'}>
+          {record.name || record.exam_id}
+        </Typography.Text>
+      ),
+    },
     {
       title: 'Exam ID',
       dataIndex: 'exam_id',
@@ -303,11 +347,14 @@ export default function ListeningJobsPage() {
     },
     {
       title: '操作',
-      width: 160,
+      width: 220,
       render: (_: unknown, record: ListeningJob) => (
         <Space size={4}>
           <Button size="small" type="link" onClick={() => openDetail(record.job_id)}>
             详情
+          </Button>
+          <Button size="small" type="link" icon={<EditOutlined />} onClick={() => openRename(record)}>
+            改名
           </Button>
           <Popconfirm
             title="确定删除该听力任务？"
@@ -363,7 +410,7 @@ export default function ListeningJobsPage() {
       </Card>
 
       <Drawer
-        title={detail?.job.exam_id ? `任务详情 · ${detail.job.exam_id}` : '任务详情'}
+        title={detail?.job ? `任务详情 · ${detail.job.name || detail.job.exam_id}` : '任务详情'}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
         width={720}
@@ -415,6 +462,7 @@ export default function ListeningJobsPage() {
                   label: 'Exam ID',
                   children: <Typography.Text copyable>{detail.job.exam_id}</Typography.Text>,
                 },
+                { key: 'name', label: '名称', children: detail.job.name || '未命名（使用 Exam ID）' },
                 { key: 'lang', label: '语种', children: langLabel(detail.job.lang) },
                 {
                   key: 'source_url',
@@ -578,6 +626,34 @@ export default function ListeningJobsPage() {
           <div style={{ textAlign: 'center', padding: 48 }}>加载中...</div>
         )}
       </Drawer>
+
+      <Modal
+        title="编辑任务名称"
+        open={!!renameJob}
+        onOk={() => void handleRename()}
+        onCancel={() => setRenameJob(null)}
+        confirmLoading={savingName}
+        cancelButtonProps={{ disabled: savingName }}
+        okText="保存"
+        cancelText="取消"
+      >
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Typography.Text type="secondary">Exam ID：{renameJob?.exam_id}</Typography.Text>
+          <Input
+            autoFocus
+            value={renameValue}
+            onChange={(event) => setRenameValue(event.target.value)}
+            onPressEnter={() => void handleRename()}
+            maxLength={100}
+            showCount
+            placeholder="输入任务名称"
+            disabled={savingName}
+          />
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            留空则清除自定义名称，列表恢复显示 Exam ID。
+          </Typography.Text>
+        </Space>
+      </Modal>
     </div>
   )
 }
