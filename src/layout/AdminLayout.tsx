@@ -2,6 +2,7 @@ import {
   AudioOutlined,
   CloudDownloadOutlined,
   DashboardOutlined,
+  FlagOutlined,
   ToolOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons'
@@ -20,6 +21,7 @@ const menuItems: MenuProps['items'] = [
       { key: '/listening/jobs', icon: <UnorderedListOutlined />, label: '任务列表' },
     ],
   },
+  { key: '/levels', icon: <FlagOutlined />, label: '关卡配置' },
   { key: '/versions', icon: <CloudDownloadOutlined />, label: '版本查询' },
 ]
 

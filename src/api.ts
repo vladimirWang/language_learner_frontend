@@ -1,7 +1,10 @@
 import type {
+  AvailableExamsResponse,
   BuildStatus,
   Health,
   Lang,
+  LevelDetailResponse,
+  LevelsResponse,
   ListeningFilesResponse,
   ListeningImportResult,
   ListeningJobDetailResponse,
@@ -93,6 +96,48 @@ export const api = {
       `/api/listening/job/${encodeURIComponent(jobId)}/answers`,
       formData,
     ),
+
+  deleteListeningJob: (jobId: string) =>
+    request<{ ok: boolean }>(`/api/listening/job/${encodeURIComponent(jobId)}`, {
+      method: 'DELETE',
+    }),
+
+  // 关卡配置
+  listLevels: () => request<LevelsResponse>('/api/levels'),
+
+  createLevel: (payload: { name: string; lang: string; description?: string; sort_order?: number }) =>
+    request<{ id: number }>('/api/levels', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  levelDetail: (id: number) => request<LevelDetailResponse>(`/api/levels/${id}`),
+
+  updateLevel: (
+    id: number,
+    payload: { name: string; description?: string; sort_order?: number },
+  ) =>
+    request<{ ok: boolean }>(`/api/levels/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteLevel: (id: number) =>
+    request<{ ok: boolean }>(`/api/levels/${id}`, { method: 'DELETE' }),
+
+  addLevelExam: (id: number, examId: string, sortOrder = 0) =>
+    request<{ ok: boolean }>(`/api/levels/${id}/exams`, {
+      method: 'POST',
+      body: JSON.stringify({ exam_id: examId, sort_order: sortOrder }),
+    }),
+
+  removeLevelExam: (id: number, examId: string) =>
+    request<{ ok: boolean }>(`/api/levels/${id}/exams/${encodeURIComponent(examId)}`, {
+      method: 'DELETE',
+    }),
+
+  availableExams: (id: number) =>
+    request<AvailableExamsResponse>(`/api/levels/${id}/exams/available`),
 }
 
 /** 拼出可直接用于 <a download> 的完整地址（含 VITE_API_BASE 前缀）。 */

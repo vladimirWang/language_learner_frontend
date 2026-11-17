@@ -1,5 +1,6 @@
 import {
   CheckCircleOutlined,
+  DeleteOutlined,
   DownloadOutlined,
   FileTextOutlined,
   ReloadOutlined,
@@ -15,6 +16,7 @@ import {
   Drawer,
   Empty,
   List,
+  Popconfirm,
   Space,
   Table,
   Tag,
@@ -301,11 +303,32 @@ export default function ListeningJobsPage() {
     },
     {
       title: '操作',
-      width: 100,
+      width: 160,
       render: (_: unknown, record: ListeningJob) => (
-        <Button size="small" type="link" onClick={() => openDetail(record.job_id)}>
-          详情
-        </Button>
+        <Space size={4}>
+          <Button size="small" type="link" onClick={() => openDetail(record.job_id)}>
+            详情
+          </Button>
+          <Popconfirm
+            title="确定删除该听力任务？"
+            description="仅软删除，产物文件保留，可在数据库恢复。"
+            onConfirm={async () => {
+              try {
+                await api.deleteListeningJob(record.job_id)
+                message.success('已删除')
+                setRefreshTick((t) => t + 1)
+              } catch (e) {
+                message.error('删除失败：' + errorMessage(e))
+              }
+            }}
+            okText="删除"
+            cancelText="取消"
+          >
+            <Button size="small" type="link" danger icon={<DeleteOutlined />}>
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ]

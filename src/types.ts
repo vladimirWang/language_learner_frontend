@@ -129,3 +129,45 @@ export interface ListeningFilesResponse {
   exam_id: string
   files: ListeningFile[]
 }
+
+// ---------------------------------------------------------------------------
+// 关卡配置
+// ---------------------------------------------------------------------------
+
+export interface Level {
+  id: number
+  name: string
+  lang: string
+  description: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface LevelExam {
+  exam_id: string
+  lang: string
+  source_url: string
+  sort_order: number
+  created_at: string
+}
+
+export interface LevelDetailResponse {
+  level: Level
+  exams: LevelExam[]
+}
+
+export interface LevelsResponse {
+  levels: Level[]
+}
+
+export interface AvailableExam {
+  exam_id: string
+  lang: string
+  source_url: string
+  created_at: string
+}
+
+export interface AvailableExamsResponse {
+  exams: AvailableExam[]
+}

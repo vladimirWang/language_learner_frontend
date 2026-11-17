@@ -4,6 +4,7 @@ import BuildsPage from './pages/BuildsPage'
 import DashboardPage from './pages/DashboardPage'
 import ListeningImportPage from './pages/ListeningImportPage'
 import ListeningJobsPage from './pages/ListeningJobsPage'
+import LevelsPage from './pages/LevelsPage'
 import NotFoundPage from './pages/NotFoundPage'
 import VersionsPage from './pages/VersionsPage'
 
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="versions" element={<VersionsPage />} />
         <Route path="listening" element={<ListeningImportPage />} />
         <Route path="listening/jobs" element={<ListeningJobsPage />} />
+        <Route path="levels" element={<LevelsPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
