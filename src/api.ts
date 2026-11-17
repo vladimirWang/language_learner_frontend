@@ -105,7 +105,7 @@ export const api = {
   // 关卡配置
   listLevels: () => request<LevelsResponse>('/api/levels'),
 
-  createLevel: (payload: { name: string; lang: string; description?: string; sort_order?: number }) =>
+  createLevel: (payload: { name: string; lang: string; difficulty?: string; description?: string; sort_order?: number; active?: boolean }) =>
     request<{ id: number }>('/api/levels', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -115,7 +115,7 @@ export const api = {
 
   updateLevel: (
     id: number,
-    payload: { name: string; description?: string; sort_order?: number },
+    payload: { name: string; difficulty?: string; description?: string; sort_order?: number; active?: boolean },
   ) =>
     request<{ ok: boolean }>(`/api/levels/${id}`, {
       method: 'PUT',

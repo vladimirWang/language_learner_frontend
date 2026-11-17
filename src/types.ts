@@ -138,6 +138,8 @@ export interface Level {
   id: number
   name: string
   lang: string
+  difficulty: string
+  active: boolean
   description: string
   sort_order: number
   created_at: string

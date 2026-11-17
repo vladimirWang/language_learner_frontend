@@ -18,6 +18,7 @@ import {
   Popconfirm,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -67,14 +68,37 @@ export default function LevelsPage() {
   const openCreate = () => {
     setEditing(null)
     form.resetFields()
-    form.setFieldsValue({ lang: 'de', sort_order: 0 })
+    form.setFieldsValue({ lang: 'de', difficulty: 'A1', sort_order: 0, active: false })
     setFormOpen(true)
   }
 
   const openEdit = (lv: Level) => {
     setEditing(lv)
-    form.setFieldsValue({ name: lv.name, description: lv.description, sort_order: lv.sort_order })
+    form.setFieldsValue({
+      name: lv.name,
+      difficulty: lv.difficulty,
+      description: lv.description,
+      sort_order: lv.sort_order,
+      active: lv.active,
+    })
     setFormOpen(true)
+  }
+
+  const handleToggleActive = async (lv: Level, active: boolean) => {
+    try {
+      await api.updateLevel(lv.id, {
+        name: lv.name,
+        difficulty: lv.difficulty,
+        description: lv.description,
+        sort_order: lv.sort_order,
+        active,
+      })
+      message.success(active ? '已生效' : '已下架')
+      setRefreshTick((t) => t + 1)
+    } catch (error) {
+      message.error((error as Error).message || '操作失败')
+      setRefreshTick((t) => t + 1)
+    }
   }
 
   const handleSubmit = async () => {
@@ -180,6 +204,26 @@ export default function LevelsPage() {
     },
     { title: '语种', dataIndex: 'lang', width: 80, render: (v: string) => langLabel(v) },
     {
+      title: '难度',
+      dataIndex: 'difficulty',
+      width: 80,
+      render: (v: string) => {
+        const color = v === 'A1' ? 'green' : v === 'A2' ? 'blue' : v === 'B1' ? 'orange' : 'red'
+        return <Tag color={color}>{v}</Tag>
+      },
+    },
+    {
+      title: '生效',
+      dataIndex: 'active',
+      width: 80,
+      render: (active: boolean, record: Level) => (
+        <Switch
+          checked={active}
+          onChange={(checked) => handleToggleActive(record, checked)}
+        />
+      ),
+    },
+    {
       title: '描述',
       dataIndex: 'description',
       ellipsis: true,
@@ -262,11 +306,28 @@ export default function LevelsPage() {
               <Select options={LANGS} />
             </Form.Item>
           )}
+          <Form.Item
+            label="难度"
+            name="difficulty"
+            rules={[{ required: true, message: '请选择难度' }]}
+          >
+            <Select
+              options={[
+                { value: 'A1', label: 'A1 - 入门' },
+                { value: 'A2', label: 'A2 - 初级' },
+                { value: 'B1', label: 'B1 - 中级' },
+                { value: 'B2', label: 'B2 - 中高级' },
+              ]}
+            />
+          </Form.Item>
           <Form.Item label="描述" name="description">
             <Input.TextArea rows={3} placeholder="关卡说明（可选）" />
           </Form.Item>
           <Form.Item label="排序" name="sort_order">
             <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item label="生效" name="active" valuePropName="checked">
+            <Switch />
           </Form.Item>
         </Form>
       </Modal>
