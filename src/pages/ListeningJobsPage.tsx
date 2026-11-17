@@ -498,7 +498,8 @@ export default function ListeningJobsPage() {
             >
               <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
                 管理员下载整套文件后人工听题，将答案整理为 CSV（格式：
-                <Typography.Text code>题号,答案</Typography.Text>，答案为 A/B/C/D），上传后自动写入 manifest。
+                <Typography.Text code>题号,答案</Typography.Text>
+                ，选择题填 A/B/C/D，判断题填 richtig/falsch），上传后自动写入 manifest。
               </Typography.Paragraph>
               <Space direction="vertical" style={{ width: '100%' }}>
                 <Upload
