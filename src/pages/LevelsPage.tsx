@@ -164,12 +164,12 @@ export default function LevelsPage() {
     }
   }
 
-  const handleAddExam = async (examId: string) => {
+  const handleAddExam = async (exam: AvailableExam) => {
     if (!activeLevel) return
-    setAddingExam(examId)
+    setAddingExam(exam.exam_id)
     try {
       const sortOrder = linkedExams.length
-      await api.addLevelExam(activeLevel.id, examId, sortOrder)
+      await api.addLevelExam(activeLevel.id, exam.exam_id, exam.item_type, sortOrder)
       message.success('已添加到关卡')
       await refreshExams()
     } catch (error) {
@@ -179,10 +179,10 @@ export default function LevelsPage() {
     }
   }
 
-  const handleRemoveExam = async (examId: string) => {
+  const handleRemoveExam = async (examId: string, itemType: 'listening' | 'speaking') => {
     if (!activeLevel) return
     try {
-      await api.removeLevelExam(activeLevel.id, examId)
+      await api.removeLevelExam(activeLevel.id, examId, itemType)
       message.success('已移除')
       await refreshExams()
     } catch (error) {
@@ -341,23 +341,38 @@ export default function LevelsPage() {
       >
         {activeLevel ? (
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            <Card size="small" title="已关联的听力 Exam">
+            <Card size="small" title="已关联的题目">
               {loadingExams ? (
                 <Typography.Text type="secondary">加载中…</Typography.Text>
               ) : linkedExams.length === 0 ? (
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未关联任何 exam" />
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未关联任何题目" />
               ) : (
                 <Table<LevelExam>
                   size="small"
-                  rowKey="exam_id"
+                  rowKey={(record) => `${record.item_type}-${record.exam_id}`}
                   pagination={false}
                   dataSource={linkedExams}
                   columns={[
                     { title: '顺序', dataIndex: 'sort_order', width: 70 },
                     {
-                      title: 'Exam ID',
+                      title: '类型',
+                      dataIndex: 'item_type',
+                      width: 80,
+                      render: (v: string) =>
+                        v === 'speaking' ? <Tag color="purple">口语</Tag> : <Tag color="blue">听力</Tag>,
+                    },
+                    {
+                      title: '名称 / Exam ID',
                       dataIndex: 'exam_id',
-                      render: (v: string) => <Typography.Text copyable>{v}</Typography.Text>,
+                      ellipsis: true,
+                      render: (v: string, record: LevelExam) => (
+                        <Space direction="vertical" size={0}>
+                          {record.name && <Typography.Text>{record.name}</Typography.Text>}
+                          <Typography.Text type="secondary" copyable style={{ fontSize: 12 }}>
+                            {v}
+                          </Typography.Text>
+                        </Space>
+                      ),
                     },
                     { title: '语种', dataIndex: 'lang', width: 70, render: (v: string) => langLabel(v) },
                     {
@@ -369,7 +384,7 @@ export default function LevelsPage() {
                           type="link"
                           danger
                           icon={<DeleteOutlined />}
-                          onClick={() => handleRemoveExam(record.exam_id)}
+                          onClick={() => handleRemoveExam(record.exam_id, record.item_type)}
                         >
                           移除
                         </Button>
@@ -380,18 +395,25 @@ export default function LevelsPage() {
               )}
             </Card>
 
-            <Card size="small" title="可添加的听力 Exam（已构建完成）">
+            <Card size="small" title="可添加的题目（听力需已构建并绑定答案；口语需填写要点）">
               {loadingExams ? (
                 <Typography.Text type="secondary">加载中…</Typography.Text>
               ) : availableExams.length === 0 ? (
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有可添加的 exam" />
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有可添加的题目" />
               ) : (
                 <Table<AvailableExam>
                   size="small"
-                  rowKey="exam_id"
+                  rowKey={(record) => `${record.item_type}-${record.exam_id}`}
                   pagination={{ pageSize: 10 }}
                   dataSource={availableExams}
                   columns={[
+                    {
+                      title: '类型',
+                      dataIndex: 'item_type',
+                      width: 80,
+                      render: (v: string) =>
+                        v === 'speaking' ? <Tag color="purple">口语</Tag> : <Tag color="blue">听力</Tag>,
+                    },
                     {
                       title: '名称',
                       dataIndex: 'name',
@@ -405,16 +427,6 @@ export default function LevelsPage() {
                     },
                     { title: '语种', dataIndex: 'lang', width: 70, render: (v: string) => langLabel(v) },
                     {
-                      title: '来源',
-                      dataIndex: 'source_url',
-                      ellipsis: true,
-                      render: (v: string) => (
-                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                          {v}
-                        </Typography.Text>
-                      ),
-                    },
-                    {
                       title: '操作',
                       width: 80,
                       render: (_: unknown, record: AvailableExam) => (
@@ -423,7 +435,7 @@ export default function LevelsPage() {
                           type="link"
                           icon={<PlusOutlined />}
                           loading={addingExam === record.exam_id}
-                          onClick={() => handleAddExam(record.exam_id)}
+                          onClick={() => handleAddExam(record)}
                         >
                           添加
                         </Button>

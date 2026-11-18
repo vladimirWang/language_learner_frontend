@@ -87,8 +87,12 @@ export const api = {
   listeningJobs: (limit = 50) =>
     request<ListeningJobsResponse>(`/api/listening/jobs?limit=${limit}`),
 
-  listeningJobDetail: (jobId: string) =>
-    request<ListeningJobDetailResponse>(`/api/listening/job/${encodeURIComponent(jobId)}`),
+  listeningJobDetail: (jobId: string, afterLogId?: number) =>
+    request<ListeningJobDetailResponse>(
+      `/api/listening/job/${encodeURIComponent(jobId)}${
+        afterLogId && afterLogId > 0 ? `?after_log_id=${afterLogId}` : ''
+      }`,
+    ),
 
   listeningJobFiles: (jobId: string) =>
     request<ListeningFilesResponse>(`/api/listening/job/${encodeURIComponent(jobId)}/files`),
@@ -99,10 +103,10 @@ export const api = {
       formData,
     ),
 
-  updateListeningJobName: (jobId: string, name: string) =>
+  updateListeningJobMeta: (jobId: string, payload: { name: string; level?: string }) =>
     request<{ ok: boolean }>(`/api/listening/job/${encodeURIComponent(jobId)}`, {
       method: 'PATCH',
-      body: JSON.stringify({ name }),
+      body: JSON.stringify(payload),
     }),
 
   deleteListeningJob: (jobId: string) =>
@@ -133,16 +137,17 @@ export const api = {
   deleteLevel: (id: number) =>
     request<{ ok: boolean }>(`/api/levels/${id}`, { method: 'DELETE' }),
 
-  addLevelExam: (id: number, examId: string, sortOrder = 0) =>
+  addLevelExam: (id: number, examId: string, itemType: 'listening' | 'speaking', sortOrder = 0) =>
     request<{ ok: boolean }>(`/api/levels/${id}/exams`, {
       method: 'POST',
-      body: JSON.stringify({ exam_id: examId, sort_order: sortOrder }),
+      body: JSON.stringify({ exam_id: examId, item_type: itemType, sort_order: sortOrder }),
     }),
 
-  removeLevelExam: (id: number, examId: string) =>
-    request<{ ok: boolean }>(`/api/levels/${id}/exams/${encodeURIComponent(examId)}`, {
-      method: 'DELETE',
-    }),
+  removeLevelExam: (id: number, examId: string, itemType: 'listening' | 'speaking') =>
+    request<{ ok: boolean }>(
+      `/api/levels/${id}/exams/${encodeURIComponent(examId)}?item_type=${itemType}`,
+      { method: 'DELETE' },
+    ),
 
   availableExams: (id: number) =>
     request<AvailableExamsResponse>(`/api/levels/${id}/exams/available`),

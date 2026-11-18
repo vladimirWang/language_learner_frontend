@@ -87,6 +87,7 @@ export interface ListeningJob {
   exam_id: string
   name?: string | null
   lang: string
+  level: string
   source_url: string
   status: string // pending / running / built / failed
   manifest_path: string
@@ -98,6 +99,7 @@ export interface ListeningJob {
 }
 
 export interface ListeningJobLog {
+  log_id: number
   stage: string
   level: string
   message: string
@@ -149,6 +151,8 @@ export interface Level {
 
 export interface LevelExam {
   exam_id: string
+  item_type: 'listening' | 'speaking'
+  name?: string
   lang: string
   source_url: string
   sort_order: number
@@ -166,6 +170,7 @@ export interface LevelsResponse {
 
 export interface AvailableExam {
   exam_id: string
+  item_type: 'listening' | 'speaking'
   name?: string | null
   lang: string
   source_url: string

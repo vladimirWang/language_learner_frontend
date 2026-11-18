@@ -20,6 +20,7 @@ import {
   List,
   Modal,
   Popconfirm,
+  Select,
   Space,
   Table,
   Tag,
@@ -36,6 +37,23 @@ import {
   type ListeningJobDetailResponse,
   type ListeningJobLog,
 } from '../types'
+
+const LEVEL_OPTIONS = [
+  { value: 'A1', label: 'A1' },
+  { value: 'A2', label: 'A2' },
+  { value: 'B1', label: 'B1' },
+  { value: 'B2', label: 'B2' },
+  { value: 'C1', label: 'C1' },
+  { value: 'C2', label: 'C2' },
+]
+
+function levelColor(level: string): string {
+  if (level === 'A1') return 'green'
+  if (level === 'A2') return 'blue'
+  if (level === 'B1') return 'orange'
+  if (level === 'B2') return 'magenta'
+  return 'purple'
+}
 
 function jobStatusColor(status: string): string {
   if (status === 'built') return 'success'
@@ -143,9 +161,11 @@ export default function ListeningJobsPage() {
   const [uploadingAnswers, setUploadingAnswers] = useState(false)
   const [submittedAnswers, setSubmittedAnswers] = useState<{ number: number; answer: string }[]>([])
 
-  const [renameJob, setRenameJob] = useState<ListeningJob | null>(null)
-  const [renameValue, setRenameValue] = useState('')
-  const [savingName, setSavingName] = useState(false)
+  const [editJob, setEditJob] = useState<ListeningJob | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editLevel, setEditLevel] = useState('A1')
+  const [savingMeta, setSavingMeta] = useState(false)
+  const [refreshingLogs, setRefreshingLogs] = useState(false)
 
   const [nowTick, setNowTick] = useState(() => Date.now())
   useEffect(() => {
@@ -169,31 +189,50 @@ export default function ListeningJobsPage() {
     void loadJobs()
   }, [refreshTick])
 
+  // 打开详情时加载一次；后续日志由「刷新日志」按钮手动增量拉取，不做定时轮询。
   useEffect(() => {
     if (!detailOpen || !detailJobId) return
     let cancelled = false
-    let timer: number | undefined
-    const tick = async () => {
-      setLoadingDetail(true)
-      try {
-        const data = await api.listeningJobDetail(detailJobId)
-        if (cancelled) return
-        setDetail(data)
-        if (data.job.status === 'running' || data.job.status === 'pending') {
-          timer = window.setTimeout(tick, 3000)
-        }
-      } catch {
+    setLoadingDetail(true)
+    api
+      .listeningJobDetail(detailJobId)
+      .then((data) => {
+        if (!cancelled) setDetail(data)
+      })
+      .catch(() => {
         // ignore
-      } finally {
+      })
+      .finally(() => {
         if (!cancelled) setLoadingDetail(false)
-      }
-    }
-    void tick()
+      })
     return () => {
       cancelled = true
-      if (timer) window.clearTimeout(timer)
     }
   }, [detailOpen, detailJobId])
+
+  // 手动增量刷新：只拉取比当前最新 log_id 更新的日志，合并到列表顶部。
+  const refreshLogs = async () => {
+    if (!detailJobId || refreshingLogs) return
+    const lastLogId =
+      detail?.logs.reduce((max, log) => Math.max(max, log.log_id ?? 0), 0) ?? 0
+    setRefreshingLogs(true)
+    try {
+      const data = await api.listeningJobDetail(detailJobId, lastLogId)
+      setDetail((prev) => {
+        const base = prev && prev.job.job_id === data.job.job_id ? prev.logs : []
+        const merged =
+          lastLogId > 0 ? [...[...data.logs].reverse(), ...base] : data.logs
+        return { job: data.job, logs: merged }
+      })
+      if (data.logs.length === 0) {
+        message.info('暂无新日志')
+      }
+    } catch (error) {
+      message.error('刷新日志失败：' + errorMessage(error))
+    } finally {
+      setRefreshingLogs(false)
+    }
+  }
 
   useEffect(() => {
     if (!detailOpen || !detailJobId) {
@@ -258,29 +297,35 @@ export default function ListeningJobsPage() {
     setDetailOpen(true)
   }
 
-  const openRename = (job: ListeningJob) => {
-    setRenameJob(job)
-    setRenameValue(job.name ?? '')
+  const openEditMeta = (job: ListeningJob) => {
+    setEditJob(job)
+    setEditName(job.name ?? '')
+    setEditLevel(job.level || 'A1')
   }
 
-  const handleRename = async () => {
-    if (!renameJob || savingName) return
-    const jobId = renameJob.job_id
-    const name = renameValue.trim()
-    setSavingName(true)
+  const handleSaveMeta = async () => {
+    if (!editJob || savingMeta) return
+    const jobId = editJob.job_id
+    const name = editName.trim()
+    const level = editLevel
+    setSavingMeta(true)
     try {
-      await api.updateListeningJobName(jobId, name)
+      await api.updateListeningJobMeta(jobId, { name, level })
       const savedName = name || null
-      setJobs((prev) => prev.map((job) => (job.job_id === jobId ? { ...job, name: savedName } : job)))
-      setDetail((prev) =>
-        prev?.job.job_id === jobId ? { ...prev, job: { ...prev.job, name: savedName } } : prev,
+      setJobs((prev) =>
+        prev.map((job) => (job.job_id === jobId ? { ...job, name: savedName, level } : job)),
       )
-      setRenameJob(null)
-      message.success(name ? '名称已更新' : '已恢复使用 Exam ID')
+      setDetail((prev) =>
+        prev?.job.job_id === jobId
+          ? { ...prev, job: { ...prev.job, name: savedName, level } }
+          : prev,
+      )
+      setEditJob(null)
+      message.success('任务信息已更新')
     } catch (error) {
-      message.error('改名失败：' + errorMessage(error))
+      message.error('保存失败：' + errorMessage(error))
     } finally {
-      setSavingName(false)
+      setSavingMeta(false)
     }
   }
 
@@ -303,6 +348,12 @@ export default function ListeningJobsPage() {
       render: (v: string) => <Typography.Text copyable>{v}</Typography.Text>,
     },
     { title: '语种', dataIndex: 'lang', width: 80, render: (v: string) => langLabel(v) },
+    {
+      title: '等级',
+      dataIndex: 'level',
+      width: 80,
+      render: (v: string) => <Tag color={levelColor(v || 'A1')}>{v || 'A1'}</Tag>,
+    },
     {
       title: '来源 URL',
       dataIndex: 'source_url',
@@ -353,9 +404,7 @@ export default function ListeningJobsPage() {
           <Button size="small" type="link" onClick={() => openDetail(record.job_id)}>
             详情
           </Button>
-          <Button size="small" type="link" icon={<EditOutlined />} onClick={() => openRename(record)}>
-            改名
-          </Button>
+          <Button size="small" type="link" icon={<EditOutlined />} onClick={() => openEditMeta(record)}></Button>
           <Popconfirm
             title="确定删除该听力任务？"
             description="仅软删除，产物文件保留，可在数据库恢复。"
@@ -371,9 +420,7 @@ export default function ListeningJobsPage() {
             okText="删除"
             cancelText="取消"
           >
-            <Button size="small" type="link" danger icon={<DeleteOutlined />}>
-              删除
-            </Button>
+            <Button size="small" type="link" danger icon={<DeleteOutlined />}></Button>
           </Popconfirm>
         </Space>
       ),
@@ -464,6 +511,11 @@ export default function ListeningJobsPage() {
                 },
                 { key: 'name', label: '名称', children: detail.job.name || '未命名（使用 Exam ID）' },
                 { key: 'lang', label: '语种', children: langLabel(detail.job.lang) },
+                {
+                  key: 'level',
+                  label: '等级',
+                  children: <Tag color={levelColor(detail.job.level || 'A1')}>{detail.job.level || 'A1'}</Tag>,
+                },
                 {
                   key: 'source_url',
                   label: '来源 URL',
@@ -610,17 +662,33 @@ export default function ListeningJobsPage() {
               </Space>
             </Card>
 
-            <Typography.Text strong>运行日志（共 {detail.logs.length} 条）</Typography.Text>
-            <Table<ListeningJobLog>
+            <Card
               size="small"
-              rowKey={(record) => `${record.created_at}-${record.stage}-${record.message}`}
-              columns={logColumns}
-              dataSource={detail.logs}
-              pagination={false}
-              scroll={{ y: 360 }}
-              loading={loadingDetail && !detail.logs.length}
-              locale={{ emptyText: '暂无日志' }}
-            />
+              title={`运行日志（共 ${detail.logs.length} 条）`}
+              extra={
+                <Button
+                  size="small"
+                  icon={<ReloadOutlined />}
+                  loading={refreshingLogs}
+                  onClick={() => void refreshLogs()}
+                >
+                  刷新日志
+                </Button>
+              }
+            >
+              <Table<ListeningJobLog>
+                size="small"
+                rowKey={(record) =>
+                  record.log_id ? String(record.log_id) : `${record.created_at}-${record.stage}-${record.message}`
+                }
+                columns={logColumns}
+                dataSource={detail.logs}
+                pagination={false}
+                scroll={{ y: 360 }}
+                loading={loadingDetail && !detail.logs.length}
+                locale={{ emptyText: '暂无日志' }}
+              />
+            </Card>
           </Space>
         ) : (
           <div style={{ textAlign: 'center', padding: 48 }}>加载中...</div>
@@ -628,29 +696,42 @@ export default function ListeningJobsPage() {
       </Drawer>
 
       <Modal
-        title="编辑任务名称"
-        open={!!renameJob}
-        onOk={() => void handleRename()}
-        onCancel={() => setRenameJob(null)}
-        confirmLoading={savingName}
-        cancelButtonProps={{ disabled: savingName }}
+        title="编辑任务"
+        open={!!editJob}
+        onOk={() => void handleSaveMeta()}
+        onCancel={() => setEditJob(null)}
+        confirmLoading={savingMeta}
+        cancelButtonProps={{ disabled: savingMeta }}
         okText="保存"
         cancelText="取消"
       >
         <Space direction="vertical" size={12} style={{ width: '100%' }}>
-          <Typography.Text type="secondary">Exam ID：{renameJob?.exam_id}</Typography.Text>
-          <Input
-            autoFocus
-            value={renameValue}
-            onChange={(event) => setRenameValue(event.target.value)}
-            onPressEnter={() => void handleRename()}
-            maxLength={100}
-            showCount
-            placeholder="输入任务名称"
-            disabled={savingName}
-          />
+          <Typography.Text type="secondary">Exam ID：{editJob?.exam_id}</Typography.Text>
+          <div>
+            <Typography.Text>等级</Typography.Text>
+            <Select
+              value={editLevel}
+              onChange={setEditLevel}
+              options={LEVEL_OPTIONS}
+              style={{ width: '100%', marginTop: 6 }}
+              disabled={savingMeta}
+            />
+          </div>
+          <div>
+            <Typography.Text>名称</Typography.Text>
+            <Input
+              value={editName}
+              onChange={(event) => setEditName(event.target.value)}
+              onPressEnter={() => void handleSaveMeta()}
+              maxLength={100}
+              showCount
+              placeholder="输入任务名称"
+              style={{ marginTop: 6 }}
+              disabled={savingMeta}
+            />
+          </div>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            留空则清除自定义名称，列表恢复显示 Exam ID。
+            名称留空则清除自定义名称，列表恢复显示 Exam ID。
           </Typography.Text>
         </Space>
       </Modal>
