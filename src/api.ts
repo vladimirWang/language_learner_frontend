@@ -14,6 +14,7 @@ import type {
   SpeakingItemsResponse,
   SpeakingTemplatesResponse,
   TriggerResult,
+  ValidateSpeakingItemResult,
   VersionInfo,
 } from './types'
 
@@ -183,6 +184,20 @@ export const api = {
   deleteSpeakingItem: (key: string) =>
     request<{ ok: boolean }>(`/api/speaking/items/${encodeURIComponent(key)}`, {
       method: 'DELETE',
+    }),
+  validateSpeakingItem: (payload: {
+    lang?: string
+    level: string
+    topic: string
+    prompt_de: string
+    prompt_zh?: string
+    expected_points?: string
+    ref_answer?: string
+    error_note?: string
+  }) =>
+    request<ValidateSpeakingItemResult>('/api/speaking/validate-item', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     }),
 
   // 口语兜底话术

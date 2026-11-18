@@ -67,7 +67,7 @@ function parsePoints(raw: string): string[] {
 }
 
 export default function SpeakingPage() {
-  const { message } = AntApp.useApp()
+  const { message, modal } = AntApp.useApp()
 
   const [items, setItems] = useState<SpeakingItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -124,11 +124,23 @@ export default function SpeakingPage() {
     setFormOpen(true)
   }
 
+  const saveItem = async (payload: Omit<SpeakingItem, 'item_key' | 'created_at' | 'updated_at'>) => {
+    if (editing) {
+      await api.updateSpeakingItem(editing.item_key, payload)
+      message.success('口语题目已更新')
+    } else {
+      await api.createSpeakingItem(payload)
+      message.success('口语题目已创建')
+    }
+    setFormOpen(false)
+    setRefreshTick((t) => t + 1)
+  }
+
   const handleSubmit = async () => {
+    let payload: Omit<SpeakingItem, 'item_key' | 'created_at' | 'updated_at'>
     try {
       const values = await form.validateFields()
-      setSubmitting(true)
-      const payload = {
+      payload = {
         lang: editing?.lang ?? 'de',
         level: values.level,
         exam_part: values.exam_part,
@@ -142,19 +154,65 @@ export default function SpeakingPage() {
         sort_order: values.sort_order ?? 0,
         active: values.active ?? true,
       }
-      if (editing) {
-        await api.updateSpeakingItem(editing.item_key, payload)
-        message.success('口语题目已更新')
-      } else {
-        await api.createSpeakingItem(payload)
-        message.success('口语题目已创建')
+    } catch {
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      // 配置语料到主题下时先做 LLM 校验：语法 + 是否属于该主题。
+      const result = await api.validateSpeakingItem({
+        lang: payload.lang,
+        level: payload.level,
+        topic: payload.topic,
+        prompt_de: payload.prompt_de,
+        prompt_zh: payload.prompt_zh,
+        expected_points: payload.expected_points,
+        ref_answer: payload.ref_answer,
+        error_note: payload.error_note,
+      })
+      if (!result.ok) {
+        setSubmitting(false)
+        modal.confirm({
+          title: 'LLM 校验未通过',
+          width: 580,
+          content: (
+            <div>
+              <p style={{ marginBottom: 8 }}>{result.reason || '语料存在语法或主题问题。'}</p>
+              {result.issues.length > 0 && (
+                <ul style={{ paddingLeft: 18, marginBottom: 0 }}>
+                  {result.issues.map((issue, index) => (
+                    <li key={`${issue.text}-${index}`} style={{ marginBottom: 6 }}>
+                      <code>{issue.text}</code>
+                      {issue.correction && <> → <code>{issue.correction}</code></>}
+                      {issue.reason && (
+                        <span style={{ color: '#8c8c8c' }}>（{issue.reason}）</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ),
+          okText: '仍要保存',
+          okButtonProps: { danger: true },
+          cancelText: '返回修改',
+          onOk: async () => {
+            setSubmitting(true)
+            try {
+              await saveItem(payload)
+            } finally {
+              setSubmitting(false)
+            }
+          },
+        })
+        return
       }
-      setFormOpen(false)
-      setRefreshTick((t) => t + 1)
+      await saveItem(payload)
     } catch (error) {
-      if (error instanceof Error && error.name === 'ApiError') {
-        message.error(error.message)
-      }
+      message.error(
+        error instanceof Error && error.name === 'ApiError' ? error.message : errorMessage(error),
+      )
     } finally {
       setSubmitting(false)
     }

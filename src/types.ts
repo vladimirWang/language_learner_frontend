@@ -149,6 +149,21 @@ export interface Level {
   updated_at: string
 }
 
+export interface ValidateSpeakingItemIssue {
+  text: string
+  correction: string
+  reason: string
+}
+
+export interface ValidateSpeakingItemResult {
+  ok: boolean
+  grammar_ok: boolean
+  topic_fit: boolean
+  issues: ValidateSpeakingItemIssue[]
+  reason: string
+  source: 'llm' | 'template' | 'error'
+}
+
 export interface LevelExam {
   exam_id: string
   item_type: 'listening' | 'speaking' | 'speaking_topic'
