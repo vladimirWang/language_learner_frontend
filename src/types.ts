@@ -302,3 +302,37 @@ export interface SpeakingPlanDetailResponse {
   items: SpeakingItem[]
 }
 
+/** PGG 试卷 PDF 导入任务。 */
+export interface PdfImportJob {
+  job_id: string
+  original_name: string
+  stored_path: string
+  size_bytes: number
+  file_md5: string
+  lang: string
+  status: 'pending' | 'queued' | 'running' | 'succeeded' | 'failed'
+  message: string
+  page_count: number
+  result: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
+  started_at: string | null
+  finished_at: string | null
+}
+
+export interface PdfImportLog {
+  log_id: number
+  job_id: string
+  level: string
+  message: string
+  created_at: string
+}
+
+export interface PdfImportJobsResponse {
+  jobs: PdfImportJob[]
+}
+
+export interface PdfImportJobDetailResponse {
+  job: PdfImportJob
+  logs: PdfImportLog[]
+}

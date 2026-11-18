@@ -9,15 +9,17 @@ import type {
   ListeningImportResult,
   ListeningJobDetailResponse,
   ListeningJobsResponse,
+  PdfImportJobDetailResponse,
+  PdfImportJobsResponse,
   ReposResponse,
   SpeakingExamPartInput,
   SpeakingExamPartsResponse,
   SpeakingItem,
-  SpeakingItemsResponse,
-  SpeakingTemplatesResponse,
   SpeakingPlanDetailResponse,
   SpeakingPlanInput,
   SpeakingPlansResponse,
+  SpeakingItemsResponse,
+  SpeakingTemplatesResponse,
   TriggerResult,
   ValidateSpeakingItemResult,
   VersionInfo,
@@ -126,6 +128,25 @@ export const api = {
       method: 'DELETE',
     }),
 
+  // PDF 试卷导入：上传后由 RabbitMQ 异步解析
+  uploadPdf: (formData: FormData) =>
+    requestForm<{ job_id: string; status: string; error?: string }>('/api/pdf/import', formData),
+
+  pdfJobs: (limit = 50) => request<PdfImportJobsResponse>(`/api/pdf/jobs?limit=${limit}`),
+
+  pdfJobDetail: (jobId: string, afterLogId?: number) =>
+    request<PdfImportJobDetailResponse>(
+      `/api/pdf/job/${encodeURIComponent(jobId)}${
+        afterLogId && afterLogId > 0 ? `?after_log_id=${afterLogId}` : ''
+      }`,
+    ),
+
+  retryPdfJob: (jobId: string) =>
+    request<{ job_id: string; status: string }>(
+      `/api/pdf/job/${encodeURIComponent(jobId)}/retry`,
+      { method: 'POST' },
+    ),
+
   // 关卡配置
   listLevels: () => request<LevelsResponse>('/api/levels'),
 
@@ -229,27 +250,6 @@ export const api = {
 
   deleteSpeakingExamPart: (id: number) =>
     request<{ ok: boolean }>(`/api/speaking/exam-parts/${id}`, { method: 'DELETE' }),
-  validateSpeakingItem: (payload: {
-    lang?: string
-    level: string
-    topic: string
-    prompt_de: string
-    prompt_zh?: string
-    expected_points?: string
-    ref_answer?: string
-    error_note?: string
-  }) =>
-    request<ValidateSpeakingItemResult>('/api/speaking/validate-item', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-
-  // 口语兜底话术
-  listSpeakingTemplates: () =>
-    request<SpeakingTemplatesResponse>('/api/speaking/templates'),
-
-  listSpeakingTopics: () =>
-    request<{ topics: string[] }>('/api/speaking/topics?lang=de'),
 
   // 口语方案：同一难度下由若干口语题目组成的可复用方案
   listSpeakingPlans: (params?: { lang?: string; level?: string; activeOnly?: boolean }) => {
@@ -278,6 +278,27 @@ export const api = {
 
   deleteSpeakingPlan: (id: number) =>
     request<{ ok: boolean }>(`/api/speaking/plans/${id}`, { method: 'DELETE' }),
+  validateSpeakingItem: (payload: {
+    lang?: string
+    level: string
+    topic: string
+    prompt_de: string
+    prompt_zh?: string
+    expected_points?: string
+    ref_answer?: string
+    error_note?: string
+  }) =>
+    request<ValidateSpeakingItemResult>('/api/speaking/validate-item', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  // 口语兜底话术
+  listSpeakingTemplates: () =>
+    request<SpeakingTemplatesResponse>('/api/speaking/templates'),
+
+  listSpeakingTopics: () =>
+    request<{ topics: string[] }>('/api/speaking/topics?lang=de'),
 
   createSpeakingTemplate: (payload: {
     exam_part: string
