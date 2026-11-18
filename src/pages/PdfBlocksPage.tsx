@@ -26,7 +26,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, errorMessage } from '../api'
-import type { PdfBlock, PdfImportJob, PdfParseResult } from '../types'
+import type { PdfBlock, PdfExamQuestion, PdfImportJob, PdfParseResult } from '../types'
 
 const SECTION_OPTIONS = [
   { value: 'diktat', label: '听写 Diktat' },
@@ -50,6 +50,38 @@ const SECTION_COLORS: Record<string, string> = {
   unknown: 'default',
 }
 
+const examColumns: TableProps<PdfExamQuestion>['columns'] = [
+  {
+    title: '题型',
+    dataIndex: 'section',
+    width: 150,
+    render: (value: string) => (
+      <Tag color={SECTION_COLORS[value] ?? 'default'}>{SECTION_LABELS[value] ?? value}</Tag>
+    ),
+  },
+  { title: '题号', dataIndex: 'q_no', width: 70 },
+  {
+    title: '题干',
+    dataIndex: 'stem',
+    render: (value: string) => <span style={{ wordBreak: 'break-all' }}>{value}</span>,
+  },
+  {
+    title: '选项',
+    dataIndex: 'options',
+    width: 360,
+    render: (value: string[]) => (
+      <span style={{ wordBreak: 'break-all' }}>{value?.join('  /  ')}</span>
+    ),
+  },
+  {
+    title: '答案',
+    dataIndex: 'correct_answer',
+    width: 90,
+    render: (value?: string | null) =>
+      value ? <Tag color="green">{value}</Tag> : <Tag>缺答案</Tag>,
+  },
+]
+
 export default function PdfBlocksPage() {
   const { jobId = '' } = useParams()
   const navigate = useNavigate()
@@ -64,6 +96,7 @@ export default function PdfBlocksPage() {
 
   const [paperFilter, setPaperFilter] = useState('ALL')
   const [sectionFilter, setSectionFilter] = useState('ALL')
+  const [examSection, setExamSection] = useState('ALL')
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editing, setEditing] = useState<PdfBlock | null>(null)
 
@@ -114,6 +147,11 @@ export default function PdfBlocksPage() {
         .filter((block) => sectionFilter === 'ALL' || block.section === sectionFilter),
     [blocks, paperFilter, sectionFilter],
   )
+
+  const examQuestions = useMemo(() => {
+    const all = result?.exam?.questions ?? []
+    return examSection === 'ALL' ? all : all.filter((q) => q.section === examSection)
+  }, [result, examSection])
 
   const updateBlock = (index: number, patch: Partial<PdfBlock>) => {
     setBlocks((prev) => prev.map((block, i) => (i === index ? { ...block, ...patch } : block)))
@@ -272,6 +310,45 @@ export default function PdfBlocksPage() {
           </Card>
         </Col>
       </Row>
+
+      {result?.exam && (
+        <Card
+          size="small"
+          title="结构化试题"
+          style={{ marginBottom: 16 }}
+          extra={
+            <Space>
+              {result.exam_db_path && <Tag color="blue">pgg_exam.db</Tag>}
+              <Select
+                value={examSection}
+                onChange={setExamSection}
+                style={{ width: 200 }}
+                options={[{ value: 'ALL', label: '全部题型' }, ...SECTION_OPTIONS]}
+              />
+            </Space>
+          }
+        >
+          <Space size={4} wrap style={{ marginBottom: 12 }}>
+            {result.exam.papers.length === 0 && <Tag>未识别到套卷</Tag>}
+            {result.exam.papers.map((paper) => (
+              <Tag key={paper.paper_id} color="purple">
+                {paper.title ?? paper.paper_id} · {paper.question_count ?? 0} 题
+              </Tag>
+            ))}
+            {result.ocr_pages && result.ocr_pages.length > 0 && (
+              <Tag color="cyan">OCR {result.ocr_pages.length} 页</Tag>
+            )}
+          </Space>
+          <Table<PdfExamQuestion>
+            rowKey={(record) => `${record.paper_id}-${record.section}-${record.q_no}`}
+            size="small"
+            columns={examColumns}
+            dataSource={examQuestions}
+            pagination={{ pageSize: 20, showSizeChanger: true }}
+            locale={{ emptyText: <Empty description="尚未抽取到客观题" /> }}
+          />
+        </Card>
+      )}
 
       <Card
         title="文本块"

@@ -354,13 +354,44 @@ export interface PdfPaper {
   sections: string[]
 }
 
+export interface PdfExamQuestion {
+  paper_id: string
+  exam_system?: string
+  section: string
+  q_no: string
+  stem: string
+  options: string[]
+  correct_answer?: string | null
+  level?: string
+}
+
+export interface PdfExamPaper {
+  paper_id: string
+  exam_system?: string
+  level?: string
+  year?: number
+  title?: string
+  source_note?: string
+  question_count?: number
+  sections?: string[]
+  source_job_id?: string
+}
+
+export interface PdfExamData {
+  papers: PdfExamPaper[]
+  questions: PdfExamQuestion[]
+}
+
 export interface PdfParseResult {
   lang: string
   source: string
   page_count: number
+  ocr_pages?: number[]
   papers: PdfPaper[]
   section_page_counts: Record<string, number>
   blocks: PdfBlock[]
+  exam?: PdfExamData
+  exam_db_path?: string
 }
 
 export interface PdfJobBlocksResponse {
