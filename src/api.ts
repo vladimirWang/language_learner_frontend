@@ -138,13 +138,13 @@ export const api = {
   deleteLevel: (id: number) =>
     request<{ ok: boolean }>(`/api/levels/${id}`, { method: 'DELETE' }),
 
-  addLevelExam: (id: number, examId: string, itemType: 'listening' | 'speaking', sortOrder = 0) =>
+  addLevelExam: (id: number, examId: string, itemType: 'listening' | 'speaking' | 'speaking_topic', sortOrder = 0) =>
     request<{ ok: boolean }>(`/api/levels/${id}/exams`, {
       method: 'POST',
       body: JSON.stringify({ exam_id: examId, item_type: itemType, sort_order: sortOrder }),
     }),
 
-  removeLevelExam: (id: number, examId: string, itemType: 'listening' | 'speaking') =>
+  removeLevelExam: (id: number, examId: string, itemType: 'listening' | 'speaking' | 'speaking_topic') =>
     request<{ ok: boolean }>(
       `/api/levels/${id}/exams/${encodeURIComponent(examId)}?item_type=${itemType}`,
       { method: 'DELETE' },

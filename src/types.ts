@@ -151,7 +151,7 @@ export interface Level {
 
 export interface LevelExam {
   exam_id: string
-  item_type: 'listening' | 'speaking'
+  item_type: 'listening' | 'speaking' | 'speaking_topic'
   name?: string
   lang: string
   source_url: string
@@ -170,7 +170,7 @@ export interface LevelsResponse {
 
 export interface AvailableExam {
   exam_id: string
-  item_type: 'listening' | 'speaking'
+  item_type: 'listening' | 'speaking' | 'speaking_topic'
   name?: string | null
   lang: string
   source_url: string

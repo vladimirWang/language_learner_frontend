@@ -179,7 +179,10 @@ export default function LevelsPage() {
     }
   }
 
-  const handleRemoveExam = async (examId: string, itemType: 'listening' | 'speaking') => {
+  const handleRemoveExam = async (
+    examId: string,
+    itemType: 'listening' | 'speaking' | 'speaking_topic',
+  ) => {
     if (!activeLevel) return
     try {
       await api.removeLevelExam(activeLevel.id, examId, itemType)
@@ -341,11 +344,11 @@ export default function LevelsPage() {
       >
         {activeLevel ? (
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            <Card size="small" title="已关联的题目">
+            <Card size="small" title="已关联的内容">
               {loadingExams ? (
                 <Typography.Text type="secondary">加载中…</Typography.Text>
               ) : linkedExams.length === 0 ? (
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未关联任何题目" />
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未关联任何内容" />
               ) : (
                 <Table<LevelExam>
                   size="small"
@@ -359,7 +362,13 @@ export default function LevelsPage() {
                       dataIndex: 'item_type',
                       width: 80,
                       render: (v: string) =>
-                        v === 'speaking' ? <Tag color="purple">口语</Tag> : <Tag color="blue">听力</Tag>,
+                        v === 'speaking_topic' ? (
+                          <Tag color="purple">口语话题</Tag>
+                        ) : v === 'speaking' ? (
+                          <Tag color="purple">口语</Tag>
+                        ) : (
+                          <Tag color="blue">听力</Tag>
+                        ),
                     },
                     {
                       title: '名称 / Exam ID',
@@ -395,11 +404,11 @@ export default function LevelsPage() {
               )}
             </Card>
 
-            <Card size="small" title="可添加的题目（听力需已构建并绑定答案；口语需填写要点）">
+            <Card size="small" title="可添加的内容（听力需已构建并绑定答案；口语按话题添加）">
               {loadingExams ? (
                 <Typography.Text type="secondary">加载中…</Typography.Text>
               ) : availableExams.length === 0 ? (
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有可添加的题目" />
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有可添加的内容" />
               ) : (
                 <Table<AvailableExam>
                   size="small"
@@ -412,7 +421,13 @@ export default function LevelsPage() {
                       dataIndex: 'item_type',
                       width: 80,
                       render: (v: string) =>
-                        v === 'speaking' ? <Tag color="purple">口语</Tag> : <Tag color="blue">听力</Tag>,
+                        v === 'speaking_topic' ? (
+                          <Tag color="purple">口语话题</Tag>
+                        ) : v === 'speaking' ? (
+                          <Tag color="purple">口语</Tag>
+                        ) : (
+                          <Tag color="blue">听力</Tag>
+                        ),
                     },
                     {
                       title: '名称',
