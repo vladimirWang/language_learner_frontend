@@ -3,6 +3,7 @@ import {
   CloudDownloadOutlined,
   DashboardOutlined,
   FlagOutlined,
+  MessageOutlined,
   SoundOutlined,
   ToolOutlined,
   UnorderedListOutlined,
@@ -24,6 +25,7 @@ const menuItems: MenuProps['items'] = [
   },
   { key: '/levels', icon: <FlagOutlined />, label: '关卡配置' },
   { key: '/speaking', icon: <SoundOutlined />, label: '口语题库' },
+  { key: '/speaking-templates', icon: <MessageOutlined />, label: '口语话术' },
   { key: '/versions', icon: <CloudDownloadOutlined />, label: '版本查询' },
 ]
 

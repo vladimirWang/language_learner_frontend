@@ -181,6 +181,22 @@ export interface AvailableExamsResponse {
   exams: AvailableExam[]
 }
 
+export interface SpeakingReplyTemplate {
+  id: number
+  lang: string
+  exam_part: string
+  role: string
+  text: string
+  active: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+export interface SpeakingTemplatesResponse {
+  templates: SpeakingReplyTemplate[]
+}
+
 // ---------------------------------------------------------------------------
 // 口语题库
 // ---------------------------------------------------------------------------

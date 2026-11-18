@@ -12,6 +12,7 @@ import type {
   ReposResponse,
   SpeakingItem,
   SpeakingItemsResponse,
+  SpeakingTemplatesResponse,
   TriggerResult,
   VersionInfo,
 } from './types'
@@ -183,6 +184,34 @@ export const api = {
     request<{ ok: boolean }>(`/api/speaking/items/${encodeURIComponent(key)}`, {
       method: 'DELETE',
     }),
+
+  // 口语兜底话术
+  listSpeakingTemplates: () =>
+    request<SpeakingTemplatesResponse>('/api/speaking/templates'),
+
+  createSpeakingTemplate: (payload: {
+    exam_part: string
+    role: string
+    text: string
+    sort_order?: number
+    active?: boolean
+  }) =>
+    request<{ id: number }>('/api/speaking/templates', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateSpeakingTemplate: (
+    id: number,
+    payload: { exam_part: string; role: string; text: string; sort_order?: number; active?: boolean },
+  ) =>
+    request<{ ok: boolean }>(`/api/speaking/templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteSpeakingTemplate: (id: number) =>
+    request<{ ok: boolean }>(`/api/speaking/templates/${id}`, { method: 'DELETE' }),
 }
 
 /** 拼出可直接用于 <a download> 的完整地址（含 VITE_API_BASE 前缀）。 */
