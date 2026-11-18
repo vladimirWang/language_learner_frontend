@@ -205,6 +205,14 @@ export default function ListeningJobsPage() {
       .finally(() => {
         if (!cancelled) setLoadingDetail(false)
       })
+    api
+      .listeningJobAnswers(detailJobId)
+      .then((data) => {
+        if (!cancelled) setSubmittedAnswers(data.answers)
+      })
+      .catch(() => {
+        // 无 manifest 或未绑定答案时保持为空
+      })
     return () => {
       cancelled = true
     }
@@ -623,6 +631,7 @@ export default function ListeningJobsPage() {
                 管理员下载整套文件后人工听题，将答案整理为 CSV（格式：
                 <Typography.Text code>题号,答案</Typography.Text>
                 ，选择题填 A/B/C/D，判断题填 richtig/falsch），上传后自动写入 manifest。
+                重新上传会覆盖已有答案。
               </Typography.Paragraph>
               <Space direction="vertical" style={{ width: '100%' }}>
                 <Upload
@@ -631,12 +640,15 @@ export default function ListeningJobsPage() {
                   beforeUpload={(file) => {
                     const formData = new FormData()
                     formData.append('answers', file)
+                    const overwrite = submittedAnswers.length > 0
                     setUploadingAnswers(true)
                     api
                       .updateListeningAnswers(detailJobId, formData)
                       .then((res) => {
                         setSubmittedAnswers(res.answers.sort((a, b) => a.number - b.number))
-                        message.success(`已绑定 ${res.updated_count} 题答案`)
+                        message.success(
+                          overwrite ? `已覆盖为 ${res.updated_count} 题答案` : `已绑定 ${res.updated_count} 题答案`,
+                        )
                       })
                       .catch((err) => message.error(errorMessage(err)))
                       .finally(() => setUploadingAnswers(false))
@@ -644,7 +656,7 @@ export default function ListeningJobsPage() {
                   }}
                 >
                   <Button type="primary" icon={<UploadOutlined />} loading={uploadingAnswers}>
-                    上传答案 CSV
+                    {submittedAnswers.length > 0 ? '重新上传答案 CSV' : '上传答案 CSV'}
                   </Button>
                 </Upload>
                 {submittedAnswers.length > 0 && (

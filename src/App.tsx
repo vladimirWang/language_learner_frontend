@@ -6,6 +6,7 @@ import ListeningImportPage from './pages/ListeningImportPage'
 import ListeningJobsPage from './pages/ListeningJobsPage'
 import LevelsPage from './pages/LevelsPage'
 import NotFoundPage from './pages/NotFoundPage'
+import SpeakingExamPartsPage from './pages/SpeakingExamPartsPage'
 import SpeakingPage from './pages/SpeakingPage'
 import SpeakingTemplatesPage from './pages/SpeakingTemplatesPage'
 import VersionsPage from './pages/VersionsPage'
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="listening/jobs" element={<ListeningJobsPage />} />
         <Route path="levels" element={<LevelsPage />} />
         <Route path="speaking" element={<SpeakingPage />} />
+        <Route path="speaking/exam-parts" element={<SpeakingExamPartsPage />} />
         <Route path="speaking-templates" element={<SpeakingTemplatesPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

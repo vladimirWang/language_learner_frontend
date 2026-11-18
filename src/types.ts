@@ -239,3 +239,32 @@ export interface SpeakingItem {
 export interface SpeakingItemsResponse {
   items: SpeakingItem[]
 }
+
+/** 口语考试辅助材料（题卡 / 思维导图 / 日程 / 关键词）。 */
+export type ExamAid =
+  | { kind: 'chips'; label: string; items: string[] }
+  | { kind: 'cards'; label: string; cards: { title: string; hint: string }[] }
+  | { kind: 'mindmap'; label: string; center: string; branches: string[] }
+  | { kind: 'schedule'; label: string; groups: { name: string; slots: string[] }[] }
+
+/** 口语考试的一个固定部分，对应 speaking_exam_parts 表。 */
+export interface SpeakingExamPart {
+  id: number
+  lang: string
+  level: string
+  part_key: string
+  title: string
+  mode: string
+  duration_sec: number
+  max_followups: number
+  role: string
+  aid: ExamAid | null
+  sort_order: number
+  active: boolean
+}
+
+export type SpeakingExamPartInput = Omit<SpeakingExamPart, 'id'>
+
+export interface SpeakingExamPartsResponse {
+  parts: SpeakingExamPart[]
+}

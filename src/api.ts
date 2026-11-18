@@ -10,6 +10,8 @@ import type {
   ListeningJobDetailResponse,
   ListeningJobsResponse,
   ReposResponse,
+  SpeakingExamPartInput,
+  SpeakingExamPartsResponse,
   SpeakingItem,
   SpeakingItemsResponse,
   SpeakingTemplatesResponse,
@@ -99,6 +101,11 @@ export const api = {
   listeningJobFiles: (jobId: string) =>
     request<ListeningFilesResponse>(`/api/listening/job/${encodeURIComponent(jobId)}/files`),
 
+  listeningJobAnswers: (jobId: string) =>
+    request<{ answers: { number: number; answer: string }[] }>(
+      `/api/listening/job/${encodeURIComponent(jobId)}/answers`,
+    ),
+
   updateListeningAnswers: (jobId: string, formData: FormData) =>
     requestForm<{ updated_count: number; answers: { number: number; answer: string }[] }>(
       `/api/listening/job/${encodeURIComponent(jobId)}/answers`,
@@ -185,6 +192,31 @@ export const api = {
     request<{ ok: boolean }>(`/api/speaking/items/${encodeURIComponent(key)}`, {
       method: 'DELETE',
     }),
+
+  // 口语考试部分配置（时长、追问、题卡等）
+  listSpeakingExamParts: (params?: { lang?: string; level?: string; activeOnly?: boolean }) => {
+    const query = new URLSearchParams()
+    if (params?.lang) query.set('lang', params.lang)
+    if (params?.level) query.set('level', params.level)
+    if (params?.activeOnly === false) query.set('active_only', 'false')
+    const suffix = query.toString() ? `?${query.toString()}` : ''
+    return request<SpeakingExamPartsResponse>(`/api/speaking/exam-parts${suffix}`)
+  },
+
+  createSpeakingExamPart: (payload: SpeakingExamPartInput) =>
+    request<{ id: number }>('/api/speaking/exam-parts', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateSpeakingExamPart: (id: number, payload: SpeakingExamPartInput) =>
+    request<{ ok: boolean }>(`/api/speaking/exam-parts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteSpeakingExamPart: (id: number) =>
+    request<{ ok: boolean }>(`/api/speaking/exam-parts/${id}`, { method: 'DELETE' }),
   validateSpeakingItem: (payload: {
     lang?: string
     level: string

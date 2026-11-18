@@ -7,6 +7,7 @@ import {
   SoundOutlined,
   ToolOutlined,
   UnorderedListOutlined,
+  ProfileOutlined,
 } from '@ant-design/icons'
 import { Layout, Menu, Typography, type MenuProps } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -24,7 +25,15 @@ const menuItems: MenuProps['items'] = [
     ],
   },
   { key: '/levels', icon: <FlagOutlined />, label: '关卡配置' },
-  { key: '/speaking', icon: <SoundOutlined />, label: '口语题库' },
+  {
+    key: '/speaking',
+    icon: <SoundOutlined />,
+    label: '口语',
+    children: [
+      { key: '/speaking', icon: <SoundOutlined />, label: '口语题库' },
+      { key: '/speaking/exam-parts', icon: <ProfileOutlined />, label: '考试配置' },
+    ],
+  },
   { key: '/speaking-templates', icon: <MessageOutlined />, label: '口语话术' },
   { key: '/versions', icon: <CloudDownloadOutlined />, label: '版本查询' },
 ]
@@ -32,7 +41,12 @@ const menuItems: MenuProps['items'] = [
 export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
-  const selectedKey = location.pathname.startsWith('/listening') ? location.pathname : location.pathname === '/' ? '/' : `/${location.pathname.split('/')[1]}`
+  const selectedKey =
+    location.pathname.startsWith('/listening') || location.pathname.startsWith('/speaking/exam-parts')
+      ? location.pathname
+      : location.pathname === '/'
+        ? '/'
+        : `/${location.pathname.split('/')[1]}`
 
   return (
     <Layout className="app-shell">
@@ -45,7 +59,7 @@ export default function AdminLayout() {
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          defaultOpenKeys={['/listening']}
+          defaultOpenKeys={['/listening', '/speaking']}
           items={menuItems}
           onClick={({ key }) => navigate(key)}
         />
