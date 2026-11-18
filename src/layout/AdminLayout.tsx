@@ -1,4 +1,5 @@
 import {
+  AppstoreOutlined,
   AudioOutlined,
   CloudDownloadOutlined,
   DashboardOutlined,
@@ -33,6 +34,7 @@ const menuItems: MenuProps['items'] = [
       { key: '/speaking', icon: <SoundOutlined />, label: '口语题库' },
       { key: '/speaking/exam-parts', icon: <ProfileOutlined />, label: '考试配置' },
     ],
+      { key: '/speaking/plans', icon: <AppstoreOutlined />, label: '口语方案' },
   },
   { key: '/speaking-templates', icon: <MessageOutlined />, label: '口语话术' },
   { key: '/versions', icon: <CloudDownloadOutlined />, label: '版本查询' },
@@ -42,7 +44,8 @@ export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const selectedKey =
-    location.pathname.startsWith('/listening') || location.pathname.startsWith('/speaking/exam-parts')
+    location.pathname.startsWith('/listening') ||
+    (location.pathname.startsWith('/speaking/') && location.pathname !== '/speaking')
       ? location.pathname
       : location.pathname === '/'
         ? '/'

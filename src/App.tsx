@@ -9,6 +9,7 @@ import NotFoundPage from './pages/NotFoundPage'
 import SpeakingExamPartsPage from './pages/SpeakingExamPartsPage'
 import SpeakingPage from './pages/SpeakingPage'
 import SpeakingTemplatesPage from './pages/SpeakingTemplatesPage'
+import SpeakingPlansPage from './pages/SpeakingPlansPage'
 import VersionsPage from './pages/VersionsPage'
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="speaking/exam-parts" element={<SpeakingExamPartsPage />} />
         <Route path="speaking-templates" element={<SpeakingTemplatesPage />} />
         <Route path="*" element={<NotFoundPage />} />
+        <Route path="speaking/plans" element={<SpeakingPlansPage />} />
       </Route>
     </Routes>
   )

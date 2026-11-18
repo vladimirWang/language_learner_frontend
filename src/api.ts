@@ -15,6 +15,9 @@ import type {
   SpeakingItem,
   SpeakingItemsResponse,
   SpeakingTemplatesResponse,
+  SpeakingPlanDetailResponse,
+  SpeakingPlanInput,
+  SpeakingPlansResponse,
   TriggerResult,
   ValidateSpeakingItemResult,
   VersionInfo,
@@ -146,13 +149,22 @@ export const api = {
   deleteLevel: (id: number) =>
     request<{ ok: boolean }>(`/api/levels/${id}`, { method: 'DELETE' }),
 
-  addLevelExam: (id: number, examId: string, itemType: 'listening' | 'speaking' | 'speaking_topic', sortOrder = 0) =>
+  addLevelExam: (
+    id: number,
+    examId: string,
+    itemType: 'listening' | 'speaking' | 'speaking_topic' | 'speaking_plan',
+    sortOrder = 0,
+  ) =>
     request<{ ok: boolean }>(`/api/levels/${id}/exams`, {
       method: 'POST',
       body: JSON.stringify({ exam_id: examId, item_type: itemType, sort_order: sortOrder }),
     }),
 
-  removeLevelExam: (id: number, examId: string, itemType: 'listening' | 'speaking' | 'speaking_topic') =>
+  removeLevelExam: (
+    id: number,
+    examId: string,
+    itemType: 'listening' | 'speaking' | 'speaking_topic' | 'speaking_plan',
+  ) =>
     request<{ ok: boolean }>(
       `/api/levels/${id}/exams/${encodeURIComponent(examId)}?item_type=${itemType}`,
       { method: 'DELETE' },
@@ -238,6 +250,34 @@ export const api = {
 
   listSpeakingTopics: () =>
     request<{ topics: string[] }>('/api/speaking/topics?lang=de'),
+
+  // 口语方案：同一难度下由若干口语题目组成的可复用方案
+  listSpeakingPlans: (params?: { lang?: string; level?: string; activeOnly?: boolean }) => {
+    const query = new URLSearchParams()
+    if (params?.lang) query.set('lang', params.lang)
+    if (params?.level) query.set('level', params.level)
+    if (params?.activeOnly === false) query.set('active_only', 'false')
+    const suffix = query.toString() ? `?${query.toString()}` : ''
+    return request<SpeakingPlansResponse>(`/api/speaking/plans${suffix}`)
+  },
+
+  getSpeakingPlan: (id: number) =>
+    request<SpeakingPlanDetailResponse>(`/api/speaking/plans/${id}`),
+
+  createSpeakingPlan: (payload: SpeakingPlanInput) =>
+    request<{ id: number }>('/api/speaking/plans', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateSpeakingPlan: (id: number, payload: SpeakingPlanInput) =>
+    request<{ ok: boolean }>(`/api/speaking/plans/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteSpeakingPlan: (id: number) =>
+    request<{ ok: boolean }>(`/api/speaking/plans/${id}`, { method: 'DELETE' }),
 
   createSpeakingTemplate: (payload: {
     exam_part: string

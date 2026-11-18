@@ -181,7 +181,7 @@ export default function LevelsPage() {
 
   const handleRemoveExam = async (
     examId: string,
-    itemType: 'listening' | 'speaking' | 'speaking_topic',
+    itemType: 'listening' | 'speaking' | 'speaking_topic' | 'speaking_plan',
   ) => {
     if (!activeLevel) return
     try {
@@ -362,7 +362,9 @@ export default function LevelsPage() {
                       dataIndex: 'item_type',
                       width: 80,
                       render: (v: string) =>
-                        v === 'speaking_topic' ? (
+                        v === 'speaking_plan' ? (
+                          <Tag color="purple">口语方案</Tag>
+                        ) : v === 'speaking_topic' ? (
                           <Tag color="purple">口语话题</Tag>
                         ) : v === 'speaking' ? (
                           <Tag color="purple">口语</Tag>
@@ -404,7 +406,7 @@ export default function LevelsPage() {
               )}
             </Card>
 
-            <Card size="small" title="可添加的内容（听力需已构建并绑定答案；口语按话题添加）">
+            <Card size="small" title="可添加的内容（听力需已构建并绑定答案；口语按方案添加）">
               {loadingExams ? (
                 <Typography.Text type="secondary">加载中…</Typography.Text>
               ) : availableExams.length === 0 ? (
@@ -421,7 +423,9 @@ export default function LevelsPage() {
                       dataIndex: 'item_type',
                       width: 80,
                       render: (v: string) =>
-                        v === 'speaking_topic' ? (
+                        v === 'speaking_plan' ? (
+                          <Tag color="purple">口语方案</Tag>
+                        ) : v === 'speaking_topic' ? (
                           <Tag color="purple">口语话题</Tag>
                         ) : v === 'speaking' ? (
                           <Tag color="purple">口语</Tag>

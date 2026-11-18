@@ -166,7 +166,7 @@ export interface ValidateSpeakingItemResult {
 
 export interface LevelExam {
   exam_id: string
-  item_type: 'listening' | 'speaking' | 'speaking_topic'
+  item_type: 'listening' | 'speaking' | 'speaking_topic' | 'speaking_plan'
   name?: string
   lang: string
   source_url: string
@@ -185,7 +185,7 @@ export interface LevelsResponse {
 
 export interface AvailableExam {
   exam_id: string
-  item_type: 'listening' | 'speaking' | 'speaking_topic'
+  item_type: 'listening' | 'speaking' | 'speaking_topic' | 'speaking_plan'
   name?: string | null
   lang: string
   source_url: string
@@ -268,3 +268,37 @@ export type SpeakingExamPartInput = Omit<SpeakingExamPart, 'id'>
 export interface SpeakingExamPartsResponse {
   parts: SpeakingExamPart[]
 }
+
+/** 同一难度下由若干口语题目组成的方案，关卡配置按方案引用。 */
+export interface SpeakingPlan {
+  id: number
+  lang: string
+  level: string
+  name: string
+  description: string
+  active: boolean
+  sort_order: number
+  item_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface SpeakingPlanInput {
+  lang: string
+  level: string
+  name: string
+  description: string
+  active: boolean
+  sort_order: number
+  item_keys: string[]
+}
+
+export interface SpeakingPlansResponse {
+  plans: SpeakingPlan[]
+}
+
+export interface SpeakingPlanDetailResponse {
+  plan: SpeakingPlan
+  items: SpeakingItem[]
+}
+
