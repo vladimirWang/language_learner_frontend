@@ -24,6 +24,8 @@ import type {
   SpeakingExamPartsResponse,
   SpeakingItem,
   SpeakingPlanDetailResponse,
+  SpeakingPlanGenerateInput,
+  SpeakingPlanGenerateResponse,
   SpeakingPlanInput,
   SpeakingPlansResponse,
   SpeakingItemsResponse,
@@ -386,6 +388,12 @@ export const api = {
 
   createSpeakingPlan: (payload: SpeakingPlanInput) =>
     request<{ id: number }>('/api/speaking/plans', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  generateSpeakingPlan: (payload: SpeakingPlanGenerateInput) =>
+    request<SpeakingPlanGenerateResponse>('/api/speaking/plans/generate', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

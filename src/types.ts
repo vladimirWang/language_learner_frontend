@@ -302,6 +302,26 @@ export interface SpeakingPlanDetailResponse {
   items: SpeakingItem[]
 }
 
+export interface SpeakingPlanGenerateInput {
+  lang?: string
+  level: string
+  name: string
+  description: string
+  item_count?: number
+}
+
+export interface SpeakingPlanGeneratedEntry {
+  position: number
+  source: 'existing' | 'new'
+  item: SpeakingItem
+}
+
+export interface SpeakingPlanGenerateResponse {
+  plan: SpeakingPlan
+  entries: SpeakingPlanGeneratedEntry[]
+  warnings: string[]
+}
+
 /** PGG 试卷 PDF 导入任务。 */
 export interface PdfImportJob {
   job_id: string

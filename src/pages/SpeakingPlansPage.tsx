@@ -1,4 +1,4 @@
-import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons'
+import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, RobotOutlined } from '@ant-design/icons'
 import {
   Alert,
   App as AntApp,
@@ -19,7 +19,13 @@ import {
 } from 'antd'
 import { useEffect, useMemo, useState } from 'react'
 import { api, errorMessage } from '../api'
-import type { SpeakingItem, SpeakingPlan, SpeakingPlanInput } from '../types'
+import type {
+  SpeakingItem,
+  SpeakingPlan,
+  SpeakingPlanGeneratedEntry,
+  SpeakingPlanGenerateResponse,
+  SpeakingPlanInput,
+} from '../types'
 
 const LEVEL_OPTIONS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].map((value) => ({
   value,
@@ -41,6 +47,13 @@ interface PlanFormValues {
   item_keys: string[]
 }
 
+interface GenerateFormValues {
+  level: string
+  name: string
+  description: string
+  item_count: number
+}
+
 export default function SpeakingPlansPage() {
   const { message } = AntApp.useApp()
 
@@ -53,6 +66,12 @@ export default function SpeakingPlansPage() {
   const [editing, setEditing] = useState<SpeakingPlan | null>(null)
   const [form] = Form.useForm<PlanFormValues>()
   const [submitting, setSubmitting] = useState(false)
+
+  const [generateOpen, setGenerateOpen] = useState(false)
+  const [generateForm] = Form.useForm<GenerateFormValues>()
+  const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState('')
+  const [generated, setGenerated] = useState<SpeakingPlanGenerateResponse | null>(null)
 
   const [items, setItems] = useState<SpeakingItem[]>([])
   const [loadingItems, setLoadingItems] = useState(false)
@@ -83,7 +102,7 @@ export default function SpeakingPlansPage() {
     let cancelled = false
     setLoadingItems(true)
     api
-      .listSpeakingItems({ lang: 'de', level: formLevel })
+      .listSpeakingItems({ lang: 'de', level: formLevel, activeOnly: false })
       .then((res) => {
         if (!cancelled) setItems(res.items ?? [])
       })
@@ -102,7 +121,7 @@ export default function SpeakingPlansPage() {
     const groups = new Map<string, { label: string; value: string }[]>()
     for (const item of items) {
       const part = PART_LABELS[item.exam_part] ?? item.exam_part
-      const label = `${part} · ${item.topic} · ${item.prompt_de}`
+      const label = `${part} · ${item.topic} · ${item.prompt_de}${item.active ? '' : '（已停用）'}`
       const list = groups.get(part) ?? []
       list.push({ label, value: item.item_key })
       groups.set(part, list)
@@ -174,6 +193,48 @@ export default function SpeakingPlansPage() {
       message.error('保存失败：' + errorMessage(error))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const openGenerate = () => {
+    generateForm.resetFields()
+    generateForm.setFieldsValue({ level: 'A1', name: '', description: '', item_count: 6 })
+    setGenerated(null)
+    setGenerateError('')
+    setGenerateOpen(true)
+  }
+
+  const closeGenerate = () => {
+    if (generating) return
+    setGenerateOpen(false)
+    setGenerated(null)
+    setGenerateError('')
+  }
+
+  const handleGenerate = async () => {
+    let values: GenerateFormValues
+    try {
+      values = await generateForm.validateFields()
+    } catch {
+      return
+    }
+    setGenerating(true)
+    setGenerateError('')
+    try {
+      const result = await api.generateSpeakingPlan({
+        lang: 'de',
+        level: values.level,
+        name: values.name.trim(),
+        description: values.description.trim(),
+        item_count: values.item_count,
+      })
+      setGenerated(result)
+      setRefreshTick((tick) => tick + 1)
+      message.success('方案已生成，请审核预览内容')
+    } catch (error) {
+      setGenerateError(errorMessage(error))
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -286,6 +347,9 @@ export default function SpeakingPlansPage() {
             <Button icon={<ReloadOutlined />} onClick={() => setRefreshTick((t) => t + 1)}>
               刷新
             </Button>
+            <Button icon={<RobotOutlined />} onClick={openGenerate}>
+              智能生成
+            </Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
               新建方案
             </Button>
@@ -347,7 +411,7 @@ export default function SpeakingPlansPage() {
             label="题目（按选择顺序出题）"
             name="item_keys"
             rules={[{ required: true, message: '至少选择一道题目' }]}
-            extra="只列出当前等级下已启用的口语题目；如需调整顺序，可在题库里修改排序。"
+            extra="列出当前等级下的全部口语题目并标注停用状态；启用方案前需先启用所有题目。"
           >
             <Select
               mode="multiple"
@@ -360,6 +424,151 @@ export default function SpeakingPlansPage() {
             />
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={generated ? '智能组卷预览' : '智能生成口语方案'}
+        open={generateOpen}
+        onOk={handleGenerate}
+        onCancel={closeGenerate}
+        confirmLoading={generating}
+        okText="开始生成"
+        cancelText="取消"
+        cancelButtonProps={{ disabled: generating }}
+        closable={!generating}
+        maskClosable={false}
+        keyboard={!generating}
+        width={generated ? 1080 : 640}
+        destroyOnClose
+        footer={
+          generated ? (
+            <div style={{ textAlign: 'right' }}>
+              <Space>
+                <Button onClick={closeGenerate}>完成</Button>
+                <Button
+                  type="primary"
+                  onClick={() => {
+                    const plan = generated.plan
+                    closeGenerate()
+                    void openEdit(plan)
+                  }}
+                >
+                  编辑方案
+                </Button>
+              </Space>
+            </div>
+          ) : undefined
+        }
+      >
+        {generated ? (
+          <div>
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message="方案和新生成题目均已默认停用"
+              description="请先在口语题库审核并启用新题，再回到方案列表启用方案。未启用所有关联题目前，方案无法启用。"
+            />
+            {generated.warnings.length > 0 && (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message="生成提示"
+                description={
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    {generated.warnings.map((warning, index) => (
+                      <li key={`${index}-${warning}`}>{warning}</li>
+                    ))}
+                  </ul>
+                }
+              />
+            )}
+            <Typography.Title level={5}>{generated.plan.name}</Typography.Title>
+            <Table<SpeakingPlanGeneratedEntry>
+              rowKey={(entry) => entry.item.item_key}
+              dataSource={generated.entries}
+              pagination={false}
+              size="small"
+              scroll={{ x: 1000 }}
+              columns={[
+                { title: '序号', dataIndex: 'position', width: 60 },
+                {
+                  title: '来源',
+                  dataIndex: 'source',
+                  width: 80,
+                  render: (source) =>
+                    source === 'existing' ? <Tag color="blue">现有题</Tag> : <Tag color="purple">新题</Tag>,
+                },
+                {
+                  title: '部分',
+                  width: 100,
+                  render: (_, entry) => PART_LABELS[entry.item.exam_part] ?? entry.item.exam_part,
+                },
+                { title: '话题', width: 130, render: (_, entry) => entry.item.topic },
+                { title: '问句', width: 360, render: (_, entry) => entry.item.prompt_de },
+                {
+                  title: '状态',
+                  width: 90,
+                  render: (_, entry) =>
+                    entry.item.active ? <Tag color="green">已启用</Tag> : <Tag>已停用</Tag>,
+                },
+              ]}
+            />
+          </div>
+        ) : (
+          <>
+            <Alert
+              type="info"
+              showIcon
+              message="优先选择题库中的现有题，说明中未覆盖的内容会自动补题。生成后可在此预览审核。"
+              style={{ marginBottom: 16 }}
+            />
+            {generateError && (
+              <Alert type="error" showIcon message="生成失败" description={generateError} style={{ marginBottom: 16 }} />
+            )}
+            <Form form={generateForm} layout="vertical">
+              <Space size={12} align="start">
+                <Form.Item
+                  label="等级"
+                  name="level"
+                  rules={[{ required: true, message: '请选择等级' }]}
+                  style={{ width: 140 }}
+                >
+                  <Select options={LEVEL_OPTIONS} />
+                </Form.Item>
+                <Form.Item
+                  label="方案名称"
+                  name="name"
+                  rules={[{ required: true, message: '请输入方案名称' }]}
+                  style={{ width: 300 }}
+                >
+                  <Input maxLength={100} placeholder="如：B1 环境主题综合练习" />
+                </Form.Item>
+                <Form.Item
+                  label="题数"
+                  name="item_count"
+                  rules={[{ required: true, message: '请输入题数' }]}
+                >
+                  <InputNumber min={1} max={10} precision={0} style={{ width: 90 }} />
+                </Form.Item>
+              </Space>
+              <Form.Item
+                label="方案说明"
+                name="description"
+                rules={[{ required: true, whitespace: true, message: '请说明组卷目标和需要覆盖的内容' }]}
+                extra="请描述话题、考试部分和希望覆盖的能力；系统会据此选题并补充缺失题目。"
+              >
+                <Input.TextArea
+                  rows={5}
+                  maxLength={2000}
+                  showCount
+                  placeholder="如：围绕日常生活与环境保护，包含个人情况问答和观点讨论，优选题库已有内容。"
+                />
+              </Form.Item>
+            </Form>
+          </>
+        )}
       </Modal>
     </div>
   )
