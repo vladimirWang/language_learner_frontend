@@ -47,8 +47,11 @@ export default function AdminLayout() {
   const location = useLocation()
   const selectedKey =
     location.pathname.startsWith('/listening') ||
+    location.pathname.startsWith('/pdf-import') ||
     (location.pathname.startsWith('/speaking/') && location.pathname !== '/speaking')
-      ? location.pathname
+      ? location.pathname.startsWith('/pdf-import')
+        ? '/pdf-import'
+        : location.pathname
       : location.pathname === '/'
         ? '/'
         : `/${location.pathname.split('/')[1]}`

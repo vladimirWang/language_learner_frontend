@@ -9,8 +9,10 @@ import type {
   ListeningImportResult,
   ListeningJobDetailResponse,
   ListeningJobsResponse,
+  PdfBlock,
   PdfImportJobDetailResponse,
   PdfImportJobsResponse,
+  PdfJobBlocksResponse,
   ReposResponse,
   SpeakingExamPartInput,
   SpeakingExamPartsResponse,
@@ -139,6 +141,15 @@ export const api = {
       `/api/pdf/job/${encodeURIComponent(jobId)}${
         afterLogId && afterLogId > 0 ? `?after_log_id=${afterLogId}` : ''
       }`,
+    ),
+
+  pdfJobBlocks: (jobId: string) =>
+    request<PdfJobBlocksResponse>(`/api/pdf/job/${encodeURIComponent(jobId)}/blocks`),
+
+  savePdfBlocks: (jobId: string, blocks: PdfBlock[]) =>
+    request<{ ok: boolean; summary: Record<string, unknown> }>(
+      `/api/pdf/job/${encodeURIComponent(jobId)}/blocks`,
+      { method: 'PUT', body: JSON.stringify({ blocks }) },
     ),
 
   retryPdfJob: (jobId: string) =>

@@ -1,4 +1,5 @@
 import {
+  EditOutlined,
   FileTextOutlined,
   RedoOutlined,
   ReloadOutlined,
@@ -21,6 +22,7 @@ import {
   type UploadFile,
 } from 'antd'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api, errorMessage, formatTime } from '../api'
 import type { PdfImportJob, PdfImportLog } from '../types'
 
@@ -48,6 +50,7 @@ function formatSize(bytes: number): string {
 
 export default function PdfImportPage() {
   const { message } = AntApp.useApp()
+  const navigate = useNavigate()
 
   const [fileList, setFileList] = useState<UploadFile[]>([])
   const [lang, setLang] = useState('de')
@@ -177,11 +180,20 @@ export default function PdfImportPage() {
     },
     {
       title: '操作',
-      width: 160,
+      width: 230,
       render: (_: unknown, record: PdfImportJob) => (
         <Space size={4}>
           <Button size="small" type="link" icon={<FileTextOutlined />} onClick={() => openDetail(record)}>
             详情
+          </Button>
+          <Button
+            size="small"
+            type="link"
+            icon={<EditOutlined />}
+            disabled={record.status !== 'succeeded'}
+            onClick={() => navigate(`/pdf-import/${record.job_id}`)}
+          >
+            校对
           </Button>
           <Button
             size="small"

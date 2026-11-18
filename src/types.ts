@@ -336,3 +336,33 @@ export interface PdfImportJobDetailResponse {
   job: PdfImportJob
   logs: PdfImportLog[]
 }
+
+/** 解析结果中的一个文本块，可人工修正题型与原文。 */
+export interface PdfBlock {
+  page_no: number
+  paper_id: string
+  exam_system: string
+  lang: string
+  section: string
+  raw_text: string
+}
+
+export interface PdfPaper {
+  paper_id: string
+  pages: number[]
+  sections: string[]
+}
+
+export interface PdfParseResult {
+  lang: string
+  source: string
+  page_count: number
+  papers: PdfPaper[]
+  section_page_counts: Record<string, number>
+  blocks: PdfBlock[]
+}
+
+export interface PdfJobBlocksResponse {
+  job_id: string
+  result: PdfParseResult
+}
