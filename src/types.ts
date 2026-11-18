@@ -175,3 +175,29 @@ export interface AvailableExam {
 export interface AvailableExamsResponse {
   exams: AvailableExam[]
 }
+
+// ---------------------------------------------------------------------------
+// 口语题库
+// ---------------------------------------------------------------------------
+
+export interface SpeakingItem {
+  item_key: string
+  lang: string
+  level: string
+  exam_part: string
+  topic: string
+  role: string
+  prompt_de: string
+  prompt_zh: string
+  expected_points: string
+  ref_answer: string
+  error_note: string
+  sort_order: number
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface SpeakingItemsResponse {
+  items: SpeakingItem[]
+}

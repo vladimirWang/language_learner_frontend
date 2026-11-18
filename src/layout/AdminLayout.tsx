@@ -3,6 +3,7 @@ import {
   CloudDownloadOutlined,
   DashboardOutlined,
   FlagOutlined,
+  SoundOutlined,
   ToolOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons'
@@ -22,6 +23,7 @@ const menuItems: MenuProps['items'] = [
     ],
   },
   { key: '/levels', icon: <FlagOutlined />, label: '关卡配置' },
+  { key: '/speaking', icon: <SoundOutlined />, label: '口语题库' },
   { key: '/versions', icon: <CloudDownloadOutlined />, label: '版本查询' },
 ]
 

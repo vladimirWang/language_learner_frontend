@@ -10,6 +10,8 @@ import type {
   ListeningJobDetailResponse,
   ListeningJobsResponse,
   ReposResponse,
+  SpeakingItem,
+  SpeakingItemsResponse,
   TriggerResult,
   VersionInfo,
 } from './types'
@@ -144,6 +146,38 @@ export const api = {
 
   availableExams: (id: number) =>
     request<AvailableExamsResponse>(`/api/levels/${id}/exams/available`),
+
+  // 口语题库
+  listSpeakingItems: (params?: { lang?: string; level?: string; activeOnly?: boolean }) => {
+    const query = new URLSearchParams()
+    if (params?.lang) query.set('lang', params.lang)
+    if (params?.level) query.set('level', params.level)
+    if (params?.activeOnly === false) query.set('active_only', 'false')
+    const suffix = query.toString() ? `?${query.toString()}` : ''
+    return request<SpeakingItemsResponse>(`/api/speaking/items${suffix}`)
+  },
+
+  createSpeakingItem: (
+    payload: Omit<SpeakingItem, 'item_key' | 'created_at' | 'updated_at'> & { item_key?: string },
+  ) =>
+    request<{ item_key: string }>('/api/speaking/items', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateSpeakingItem: (
+    key: string,
+    payload: Omit<SpeakingItem, 'item_key' | 'created_at' | 'updated_at'>,
+  ) =>
+    request<{ ok: boolean }>(`/api/speaking/items/${encodeURIComponent(key)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteSpeakingItem: (key: string) =>
+    request<{ ok: boolean }>(`/api/speaking/items/${encodeURIComponent(key)}`, {
+      method: 'DELETE',
+    }),
 }
 
 /** 拼出可直接用于 <a download> 的完整地址（含 VITE_API_BASE 前缀）。 */
