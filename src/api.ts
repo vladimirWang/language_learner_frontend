@@ -204,10 +204,14 @@ export const api = {
   listSpeakingTemplates: () =>
     request<SpeakingTemplatesResponse>('/api/speaking/templates'),
 
+  listSpeakingTopics: () =>
+    request<{ topics: string[] }>('/api/speaking/topics?lang=de'),
+
   createSpeakingTemplate: (payload: {
     exam_part: string
     role: string
     text: string
+    topics?: string[]
     sort_order?: number
     active?: boolean
   }) =>
@@ -218,7 +222,14 @@ export const api = {
 
   updateSpeakingTemplate: (
     id: number,
-    payload: { exam_part: string; role: string; text: string; sort_order?: number; active?: boolean },
+    payload: {
+      exam_part: string
+      role: string
+      text: string
+      topics?: string[]
+      sort_order?: number
+      active?: boolean
+    },
   ) =>
     request<{ ok: boolean }>(`/api/speaking/templates/${id}`, {
       method: 'PUT',

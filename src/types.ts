@@ -202,6 +202,8 @@ export interface SpeakingReplyTemplate {
   exam_part: string
   role: string
   text: string
+  /** 绑定的话题标签；空数组表示通用话术 */
+  topics: string[]
   active: boolean
   sort_order: number
   created_at: string

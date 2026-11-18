@@ -43,6 +43,7 @@ interface TemplateFormValues {
   exam_part: string
   role: string
   text: string
+  topics?: string[]
   sort_order: number
   active: boolean
 }
@@ -51,6 +52,7 @@ export default function SpeakingTemplatesPage() {
   const { message } = AntApp.useApp()
 
   const [items, setItems] = useState<SpeakingReplyTemplate[]>([])
+  const [topicOptions, setTopicOptions] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
 
@@ -64,6 +66,8 @@ export default function SpeakingTemplatesPage() {
     try {
       const res = await api.listSpeakingTemplates()
       setItems(res.templates ?? [])
+      const topicsRes = await api.listSpeakingTopics()
+      setTopicOptions(topicsRes.topics ?? [])
     } catch (error) {
       message.error('加载兜底话术失败：' + errorMessage(error))
     } finally {
@@ -81,6 +85,7 @@ export default function SpeakingTemplatesPage() {
     form.setFieldsValue({
       exam_part: 'part1_intro',
       role: 'examiner',
+      topics: [],
       sort_order: 0,
       active: true,
     })
@@ -93,6 +98,7 @@ export default function SpeakingTemplatesPage() {
       exam_part: item.exam_part,
       role: item.role,
       text: item.text,
+      topics: item.topics ?? [],
       sort_order: item.sort_order,
       active: item.active,
     })
@@ -107,6 +113,7 @@ export default function SpeakingTemplatesPage() {
         exam_part: values.exam_part,
         role: values.role,
         text: values.text.trim(),
+        topics: values.topics ?? [],
         sort_order: values.sort_order ?? 0,
         active: values.active ?? true,
       }
@@ -144,6 +151,7 @@ export default function SpeakingTemplatesPage() {
         exam_part: item.exam_part,
         role: item.role,
         text: item.text,
+        topics: item.topics ?? [],
         sort_order: item.sort_order,
         active,
       })
@@ -168,6 +176,23 @@ export default function SpeakingTemplatesPage() {
       dataIndex: 'role',
       width: 80,
       render: (v: string) => <Tag color={v === 'partner' ? 'purple' : 'blue'}>{ROLE_LABELS[v] ?? v}</Tag>,
+    },
+    {
+      title: '话题标签',
+      dataIndex: 'topics',
+      width: 180,
+      render: (v: string[]) =>
+        v && v.length > 0 ? (
+          <Space size={4} wrap>
+            {v.map((topic) => (
+              <Tag key={topic} color="purple">
+                {topic}
+              </Tag>
+            ))}
+          </Space>
+        ) : (
+          <Tag>通用</Tag>
+        ),
     },
     {
       title: '话术',
@@ -220,7 +245,7 @@ export default function SpeakingTemplatesPage() {
       }
     >
       <Typography.Paragraph type="secondary" style={{ fontSize: 13 }}>
-        大模型不可用、输出不合规或与历史重复时，问候语与追问从这里取。按「部分 + 角色」轮转，已问过的句子会跳过；表为空或全部停用时回退代码内默认话术。
+        大模型不可用、输出不合规或与历史重复时，问候语与追问从这里取。按「部分 + 角色」轮转，已问过的句子会跳过；绑定话题的话术只用于该话题，与话题无关的话术无法保存。
       </Typography.Paragraph>
       <Table
         rowKey="id"
@@ -247,6 +272,18 @@ export default function SpeakingTemplatesPage() {
           </Form.Item>
           <Form.Item name="role" label="角色" rules={[{ required: true, message: '请选择角色' }]}>
             <Select options={ROLE_OPTIONS} />
+          </Form.Item>
+          <Form.Item
+            name="topics"
+            label="话题标签"
+            extra="可绑定多个话题；未绑定时作为通用话术。保存时会用 LLM 校验话术与话题是否相关。"
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="选择话题（可多选）"
+              options={topicOptions.map((topic) => ({ value: topic, label: topic }))}
+            />
           </Form.Item>
           <Form.Item name="text" label="德语话术" rules={[{ required: true, message: '请输入德语话术' }]}>
             <Input.TextArea rows={3} maxLength={300} showCount placeholder="z. B. Können Sie das bitte genauer sagen?" />
