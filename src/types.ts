@@ -318,6 +318,7 @@ export interface PdfImportJob {
   updated_at: string
   started_at: string | null
   finished_at: string | null
+  deleted_at?: string | null
 }
 
 export interface PdfImportLog {
@@ -365,4 +366,25 @@ export interface PdfParseResult {
 export interface PdfJobBlocksResponse {
   job_id: string
   result: PdfParseResult
+}
+
+/** 分片上传会话；uploaded_chunks 用于断点续传。 */
+export interface PdfUploadInitResponse {
+  completed: boolean
+  duplicate?: boolean
+  original_name?: string
+  upload_id: string
+  job_id?: string
+  status?: string
+  chunk_size?: number
+  total_chunks?: number
+  uploaded_chunks?: number[]
+}
+
+export interface PdfUploadCompleteResponse {
+  job_id: string
+  status: string
+  duplicate?: boolean
+  original_name?: string
+  warning?: string
 }

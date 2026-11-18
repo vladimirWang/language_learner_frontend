@@ -1,8 +1,10 @@
 import {
+  DeleteOutlined,
   EditOutlined,
   FileTextOutlined,
   RedoOutlined,
   ReloadOutlined,
+  UndoOutlined,
   UploadOutlined,
 } from '@ant-design/icons'
 import {
@@ -12,8 +14,11 @@ import {
   Card,
   Descriptions,
   Drawer,
+  Popconfirm,
+  Progress,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -24,6 +29,7 @@ import {
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, errorMessage, formatTime } from '../api'
+import { computeFileMD5, runWithConcurrency } from '../utils'
 import type { PdfImportJob, PdfImportLog } from '../types'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -35,9 +41,9 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: '待投递',
-  queued: '排队中',
-  running: '解析中',
+  pending: '等待解析',
+  queued: '等待解析',
+  running: '正在解析',
   succeeded: '已完成',
   failed: '失败',
 }
@@ -48,6 +54,24 @@ function formatSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+const PDF_CHUNK_SIZE = 10 * 1024 * 1024 // 10MB
+const PDF_CHUNK_CONCURRENCY = 6
+
+/** 用文件名+大小+修改时间生成稳定指纹，供服务端定位未完成的分片会话。 */
+async function fileFingerprint(file: File): Promise<string> {
+  const base = `${file.name}|${file.size}|${file.lastModified}`
+  if (globalThis.crypto?.subtle) {
+    const digest = await globalThis.crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(base),
+    )
+    return [...new Uint8Array(digest)]
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('')
+  }
+  return base
+}
+
 export default function PdfImportPage() {
   const { message } = AntApp.useApp()
   const navigate = useNavigate()
@@ -55,10 +79,13 @@ export default function PdfImportPage() {
   const [fileList, setFileList] = useState<UploadFile[]>([])
   const [lang, setLang] = useState('de')
   const [uploading, setUploading] = useState(false)
+  const [uploadPercent, setUploadPercent] = useState(0)
+  const [uploadPhase, setUploadPhase] = useState<'hashing' | 'uploading'>('uploading')
 
   const [jobs, setJobs] = useState<PdfImportJob[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [showDeleted, setShowDeleted] = useState(false)
 
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailJob, setDetailJob] = useState<PdfImportJob | null>(null)
@@ -70,7 +97,7 @@ export default function PdfImportPage() {
   const loadJobs = async () => {
     setLoading(true)
     try {
-      const res = await api.pdfJobs(50)
+      const res = await api.pdfJobs(50, showDeleted)
       setJobs(res.jobs ?? [])
     } catch (error) {
       message.error('加载导入任务失败：' + errorMessage(error))
@@ -81,7 +108,7 @@ export default function PdfImportPage() {
 
   useEffect(() => {
     void loadJobs()
-  }, [refreshTick])
+  }, [refreshTick, showDeleted])
 
   useEffect(() => {
     if (!detailOpen || !detailJobId) return
@@ -111,16 +138,64 @@ export default function PdfImportPage() {
       message.warning('请先选择 PDF 文件')
       return
     }
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('lang', lang)
     setUploading(true)
+    setUploadPercent(0)
+    setUploadPhase('hashing')
     try {
-      const res = await api.uploadPdf(formData)
-      message.success(
-        res.error ? res.error : `已提交解析任务：${res.job_id}`,
-      )
+      const [fingerprint, md5] = await Promise.all([
+        fileFingerprint(file),
+        computeFileMD5(file, setUploadPercent),
+      ])
+      setUploadPhase('uploading')
+      setUploadPercent(0)
+      const init = await api.initPdfUpload({
+        filename: file.name,
+        size: file.size,
+        lang,
+        fingerprint,
+        md5,
+      })
+      if (init.completed && init.job_id) {
+        message.info(
+          init.duplicate
+            ? `相同文件已存在（${init.original_name ?? file.name}），已定位到任务 ${init.job_id}`
+            : '该文件已上传，导入任务已存在',
+        )
+        setFileList([])
+        setRefreshTick((t) => t + 1)
+        return
+      }
+      const chunkSize = init.chunk_size ?? PDF_CHUNK_SIZE
+      const totalChunks = init.total_chunks ?? Math.ceil(file.size / chunkSize)
+      const uploaded = new Set(init.uploaded_chunks ?? [])
+      let done = uploaded.size
+      setUploadPercent(Math.round((done / totalChunks) * 100))
+      // 未上传的分片作为任务工厂交给并发控制器，最多 6 个分片同时在传。
+      const pendingChunks: Array<() => Promise<void>> = []
+      for (let index = 0; index < totalChunks; index += 1) {
+        if (uploaded.has(index)) continue
+        pendingChunks.push(async () => {
+          const blob = file.slice(
+            index * chunkSize,
+            Math.min((index + 1) * chunkSize, file.size),
+          )
+          await api.uploadPdfChunk(init.upload_id, index, blob)
+          done += 1
+          setUploadPercent(Math.round((done / totalChunks) * 100))
+        })
+      }
+      await runWithConcurrency(pendingChunks, PDF_CHUNK_CONCURRENCY)
+      const res = await api.completePdfUpload(init.upload_id)
+      // 上传与投递已完成，立即关闭 loading，任务列表随后异步刷新。
+      setUploading(false)
       setFileList([])
+      if (res.duplicate) {
+        message.info(`相同文件已存在，已复用任务 ${res.job_id}`)
+      } else if (res.warning) {
+        message.warning(res.warning)
+      } else {
+        message.success('已提交解析任务')
+      }
       setRefreshTick((t) => t + 1)
     } catch (error) {
       message.error('上传失败：' + errorMessage(error))
@@ -134,6 +209,26 @@ export default function PdfImportPage() {
     setDetailJob(null)
     setLogs([])
     setDetailOpen(true)
+  }
+
+  const handleDelete = async (job: PdfImportJob) => {
+    try {
+      await api.deletePdfJob(job.job_id)
+      message.success('任务已删除，可在「显示已删除」中恢复')
+      setRefreshTick((t) => t + 1)
+    } catch (error) {
+      message.error('删除失败：' + errorMessage(error))
+    }
+  }
+
+  const handleRestore = async (job: PdfImportJob) => {
+    try {
+      await api.restorePdfJob(job.job_id)
+      message.success('任务已恢复')
+      setRefreshTick((t) => t + 1)
+    } catch (error) {
+      message.error('恢复失败：' + errorMessage(error))
+    }
   }
 
   const handleRetry = async (job: PdfImportJob) => {
@@ -152,7 +247,12 @@ export default function PdfImportPage() {
       title: '状态',
       dataIndex: 'status',
       width: 100,
-      render: (v: string) => <Tag color={STATUS_COLORS[v] ?? 'default'}>{STATUS_LABELS[v] ?? v}</Tag>,
+      render: (v: string, record) =>
+        record.deleted_at ? (
+          <Tag color="default">已删除</Tag>
+        ) : (
+          <Tag color={STATUS_COLORS[v] ?? 'default'}>{STATUS_LABELS[v] ?? v}</Tag>
+        ),
     },
     {
       title: '页数',
@@ -180,32 +280,53 @@ export default function PdfImportPage() {
     },
     {
       title: '操作',
-      width: 230,
-      render: (_: unknown, record: PdfImportJob) => (
-        <Space size={4}>
-          <Button size="small" type="link" icon={<FileTextOutlined />} onClick={() => openDetail(record)}>
-            详情
-          </Button>
+      width: 280,
+      render: (_: unknown, record: PdfImportJob) =>
+        record.deleted_at ? (
           <Button
             size="small"
             type="link"
-            icon={<EditOutlined />}
-            disabled={record.status !== 'succeeded'}
-            onClick={() => navigate(`/pdf-import/${record.job_id}`)}
+            icon={<UndoOutlined />}
+            onClick={() => void handleRestore(record)}
           >
-            校对
+            恢复
           </Button>
-          <Button
-            size="small"
-            type="link"
-            icon={<RedoOutlined />}
-            disabled={record.status === 'running'}
-            onClick={() => handleRetry(record)}
-          >
-            重试
-          </Button>
-        </Space>
-      ),
+        ) : (
+          <Space size={4}>
+            <Button size="small" type="link" icon={<FileTextOutlined />} onClick={() => openDetail(record)}>
+              详情
+            </Button>
+            <Button
+              size="small"
+              type="link"
+              icon={<EditOutlined />}
+              disabled={record.status !== 'succeeded'}
+              onClick={() => navigate(`/pdf-import/${record.job_id}`)}
+            >
+              校对
+            </Button>
+            <Button
+              size="small"
+              type="link"
+              icon={<RedoOutlined />}
+              disabled={record.status === 'running'}
+              onClick={() => handleRetry(record)}
+            >
+              重试
+            </Button>
+            <Popconfirm
+              title="删除该导入任务？"
+              description="文件与解析结果会保留，可在「显示已删除」中恢复。"
+              okText="删除"
+              cancelText="取消"
+              onConfirm={() => void handleDelete(record)}
+            >
+              <Button size="small" type="link" danger icon={<DeleteOutlined />}>
+                删除
+              </Button>
+            </Popconfirm>
+          </Space>
+        ),
     },
   ]
 
@@ -261,8 +382,16 @@ export default function PdfImportPage() {
               上传并解析
             </Button>
           </Space>
+          {uploading && (
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <Typography.Text type="secondary">
+                {uploadPhase === 'hashing' ? '正在计算文件 MD5…' : '正在上传分片…'}
+              </Typography.Text>
+              <Progress percent={uploadPercent} size="small" status="active" />
+            </Space>
+          )}
           <Typography.Text type="secondary">
-            支持较大的 PDF；文件落盘与入库成功后才投递消息，消息失败可在任务列表重试。
+            大文件按 8MB 分片上传，中断后重新选择同一文件会从已上传分片继续；合并完成即投递消息队列。
           </Typography.Text>
         </Space>
       </Card>
@@ -270,9 +399,15 @@ export default function PdfImportPage() {
       <Card
         title="导入任务"
         extra={
-          <Button icon={<ReloadOutlined />} onClick={() => setRefreshTick((t) => t + 1)}>
-            刷新
-          </Button>
+          <Space>
+            <Space size={4}>
+              <Switch size="small" checked={showDeleted} onChange={setShowDeleted} />
+              <Typography.Text type="secondary">显示已删除</Typography.Text>
+            </Space>
+            <Button icon={<ReloadOutlined />} onClick={() => setRefreshTick((t) => t + 1)}>
+              刷新
+            </Button>
+          </Space>
         }
       >
         <Table<PdfImportJob>
@@ -280,6 +415,7 @@ export default function PdfImportPage() {
           columns={columns}
           dataSource={jobs}
           loading={loading}
+          rowClassName={(record) => (record.deleted_at ? 'row-deleted' : '')}
           pagination={{ pageSize: 10 }}
           locale={{ emptyText: '暂无导入任务' }}
         />

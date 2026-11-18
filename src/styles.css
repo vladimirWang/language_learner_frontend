@@ -24,6 +24,10 @@ body {
   min-height: 100vh;
 }
 
+.row-deleted > td {
+  opacity: 0.55;
+}
+
 .brand {
   height: 56px;
   display: flex;

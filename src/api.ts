@@ -13,6 +13,8 @@ import type {
   PdfImportJobDetailResponse,
   PdfImportJobsResponse,
   PdfJobBlocksResponse,
+  PdfUploadCompleteResponse,
+  PdfUploadInitResponse,
   ReposResponse,
   SpeakingExamPartInput,
   SpeakingExamPartsResponse,
@@ -76,6 +78,36 @@ async function requestForm<T>(path: string, formData: FormData): Promise<T> {
   return body as T
 }
 
+async function requestBinary<T>(path: string, body: Blob, timeoutMs = 120_000): Promise<T> {
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body,
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError(408, '分片上传超时')
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timer)
+  }
+  const result: unknown = await response.json().catch(() => null)
+  if (!response.ok) {
+    const message =
+      result && typeof result === 'object' && 'error' in result && typeof result.error === 'string'
+        ? result.error
+        : `请求失败（HTTP ${response.status}）`
+    throw new ApiError(response.status, message)
+  }
+  return result as T
+}
+
 export const api = {
   health: () => request<Health>('/api/health'),
 
@@ -134,13 +166,54 @@ export const api = {
   uploadPdf: (formData: FormData) =>
     requestForm<{ job_id: string; status: string; error?: string }>('/api/pdf/import', formData),
 
-  pdfJobs: (limit = 50) => request<PdfImportJobsResponse>(`/api/pdf/jobs?limit=${limit}`),
+  deletePdfJob: (jobId: string) =>
+    request<{ ok: boolean }>(`/api/pdf/job/${encodeURIComponent(jobId)}`, {
+      method: 'DELETE',
+    }),
+
+  restorePdfJob: (jobId: string) =>
+    request<{ ok: boolean }>(`/api/pdf/job/${encodeURIComponent(jobId)}/restore`, {
+      method: 'POST',
+    }),
+
+  pdfJobs: (limit = 50, includeDeleted = false) =>
+    request<PdfImportJobsResponse>(
+      `/api/pdf/jobs?limit=${limit}${includeDeleted ? '&include_deleted=1' : ''}`,
+    ),
 
   pdfJobDetail: (jobId: string, afterLogId?: number) =>
     request<PdfImportJobDetailResponse>(
       `/api/pdf/job/${encodeURIComponent(jobId)}${
         afterLogId && afterLogId > 0 ? `?after_log_id=${afterLogId}` : ''
       }`,
+    ),
+
+  // 分片上传：初始化 / 查进度 / 传分片 / 合并
+  initPdfUpload: (payload: {
+    filename: string
+    size: number
+    lang: string
+    fingerprint: string
+    md5: string
+  }) =>
+    request<PdfUploadInitResponse>('/api/pdf/upload/init', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  pdfUploadStatus: (uploadId: string) =>
+    request<PdfUploadInitResponse>(`/api/pdf/upload/${encodeURIComponent(uploadId)}`),
+
+  uploadPdfChunk: (uploadId: string, index: number, blob: Blob) =>
+    requestBinary<{ received: number; total_chunks: number }>(
+      `/api/pdf/upload/${encodeURIComponent(uploadId)}/chunk/${index}`,
+      blob,
+    ),
+
+  completePdfUpload: (uploadId: string) =>
+    request<PdfUploadCompleteResponse>(
+      `/api/pdf/upload/${encodeURIComponent(uploadId)}/complete`,
+      { method: 'POST' },
     ),
 
   pdfJobBlocks: (jobId: string) =>
