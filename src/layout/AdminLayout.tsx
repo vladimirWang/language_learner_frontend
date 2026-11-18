@@ -6,6 +6,7 @@ import {
   FileTextOutlined,
   FlagOutlined,
   MessageOutlined,
+  ReadOutlined,
   SoundOutlined,
   ToolOutlined,
   UnorderedListOutlined,
@@ -28,6 +29,7 @@ const menuItems: MenuProps['items'] = [
   },
   { key: '/levels', icon: <FlagOutlined />, label: '关卡配置' },
   { key: '/pdf-import', icon: <FileTextOutlined />, label: 'PDF 试卷导入' },
+  { key: '/exam', icon: <ReadOutlined />, label: '德专四级题库' },
   {
     key: '/speaking',
     icon: <SoundOutlined />,

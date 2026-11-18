@@ -382,6 +382,26 @@ export interface PdfExamData {
   questions: PdfExamQuestion[]
 }
 
+/** 管理台 PGG 题库：在试卷基础上附带答案绑定与听写/写作统计。 */
+export interface ExamAdminPaper extends PdfExamPaper {
+  answered_count?: number
+  diktat_count?: number
+  writing_count?: number
+}
+
+export interface ExamDiktat {
+  paper_id: string
+  full_text: string
+  word_count: number
+  audio_ref?: string
+}
+
+export interface ExamWriting {
+  paper_id: string
+  prompt: string
+  word_limit?: number | null
+}
+
 export interface PdfParseResult {
   lang: string
   source: string

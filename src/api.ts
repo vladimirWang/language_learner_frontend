@@ -1,6 +1,9 @@
 import type {
   AvailableExamsResponse,
   BuildStatus,
+  ExamAdminPaper,
+  ExamDiktat,
+  ExamWriting,
   Health,
   Lang,
   LevelDetailResponse,
@@ -10,6 +13,7 @@ import type {
   ListeningJobDetailResponse,
   ListeningJobsResponse,
   PdfBlock,
+  PdfExamQuestion,
   PdfImportJobDetailResponse,
   PdfImportJobsResponse,
   PdfJobBlocksResponse,
@@ -229,6 +233,38 @@ export const api = {
     request<{ job_id: string; status: string }>(
       `/api/pdf/job/${encodeURIComponent(jobId)}/retry`,
       { method: 'POST' },
+    ),
+
+  // 德专四级（PGG）题库维护
+  examAdminPapers: () => request<{ papers: ExamAdminPaper[] }>('/api/exam/admin/papers'),
+
+  examAdminQuestions: (paperId: string, section?: string) => {
+    const query = new URLSearchParams({ paper_id: paperId })
+    if (section) query.set('section', section)
+    return request<{ questions: PdfExamQuestion[] }>(
+      `/api/exam/admin/questions?${query.toString()}`,
+    )
+  },
+
+  updateExamAnswer: (payload: {
+    paper_id: string
+    section: string
+    q_no: string
+    correct_answer: string
+  }) =>
+    request<{ question: PdfExamQuestion }>('/api/exam/admin/answer', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  examDiktat: (paperId: string) =>
+    request<{ diktat: ExamDiktat[] }>(
+      `/api/exam/paper/${encodeURIComponent(paperId)}/diktat`,
+    ),
+
+  examWriting: (paperId: string) =>
+    request<{ writing: ExamWriting[] }>(
+      `/api/exam/paper/${encodeURIComponent(paperId)}/writing`,
     ),
 
   // 关卡配置

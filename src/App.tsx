@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom'
 import AdminLayout from './layout/AdminLayout'
 import BuildsPage from './pages/BuildsPage'
 import DashboardPage from './pages/DashboardPage'
+import ExamLibraryPage from './pages/ExamLibraryPage'
 import ListeningImportPage from './pages/ListeningImportPage'
 import ListeningJobsPage from './pages/ListeningJobsPage'
 import LevelsPage from './pages/LevelsPage'
@@ -26,6 +27,7 @@ export default function App() {
         <Route path="levels" element={<LevelsPage />} />
         <Route path="pdf-import" element={<PdfImportPage />} />
         <Route path="pdf-import/:jobId" element={<PdfBlocksPage />} />
+        <Route path="exam" element={<ExamLibraryPage />} />
         <Route path="speaking" element={<SpeakingPage />} />
         <Route path="speaking/exam-parts" element={<SpeakingExamPartsPage />} />
         <Route path="speaking/plans" element={<SpeakingPlansPage />} />
