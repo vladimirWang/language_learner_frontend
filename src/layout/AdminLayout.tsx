@@ -12,8 +12,9 @@ import {
   UnorderedListOutlined,
   ProfileOutlined,
 } from '@ant-design/icons'
-import { Layout, Menu, Typography, type MenuProps } from 'antd'
+import { Button, Layout, Menu, Space, Typography, type MenuProps } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { getSsoUser, logoutSso } from '../auth'
 
 const menuItems: MenuProps['items'] = [
   { key: '/', icon: <DashboardOutlined />, label: '概览' },
@@ -77,7 +78,20 @@ export default function AdminLayout() {
       <Layout>
         <Layout.Header className="app-header">
           <Typography.Text strong>语言学习 Agent · 素材版本服务</Typography.Text>
-          <Typography.Text type="secondary">构建 / 版本 / 下载</Typography.Text>
+          <Space size={12}>
+            <Typography.Text type="secondary">
+              {getSsoUser()?.email ?? getSsoUser()?.username ?? ''}
+            </Typography.Text>
+            <Button
+              size="small"
+              onClick={() => {
+                logoutSso()
+                window.location.replace('/')
+              }}
+            >
+              退出登录
+            </Button>
+          </Space>
         </Layout.Header>
         <Layout.Content className="app-content">
           <Outlet />

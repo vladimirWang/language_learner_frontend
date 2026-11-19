@@ -269,6 +269,37 @@ export interface SpeakingExamPartsResponse {
   parts: SpeakingExamPart[]
 }
 
+/** 方案级语法要求；整场任意回答达成即可，hint_parts 仅用于提示。 */
+export interface GrammarRequirement {
+  key: string
+  label: string
+  source_path: string
+  patterns: string[]
+  min_uses: number
+  enforce: 'block' | 'warn'
+  hint_parts: string[]
+}
+
+/** 可选语法点，按源文档聚合。 */
+export interface GrammarPoint {
+  key: string
+  label: string
+  level: string
+  source_path: string
+  patterns: string[]
+}
+
+export interface GrammarPointsResponse {
+  points: GrammarPoint[]
+}
+
+/** 口语开考时附带的最近五天新词。 */
+export interface RecentWord {
+  lemma: string
+  chinese_mean: string
+  level: string
+}
+
 /** 同一难度下由若干口语题目组成的方案，关卡配置按方案引用。 */
 export interface SpeakingPlan {
   id: number
@@ -279,6 +310,7 @@ export interface SpeakingPlan {
   active: boolean
   sort_order: number
   item_count: number
+  grammar_requirements: GrammarRequirement[]
   created_at: string
   updated_at: string
 }
@@ -291,6 +323,7 @@ export interface SpeakingPlanInput {
   active: boolean
   sort_order: number
   item_keys: string[]
+  grammar_requirements: GrammarRequirement[]
 }
 
 export interface SpeakingPlansResponse {
@@ -300,6 +333,7 @@ export interface SpeakingPlansResponse {
 export interface SpeakingPlanDetailResponse {
   plan: SpeakingPlan
   items: SpeakingItem[]
+  recent_words?: RecentWord[]
 }
 
 export interface SpeakingPlanGenerateInput {

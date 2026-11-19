@@ -1,9 +1,11 @@
+import { getSsoToken } from './auth'
 import type {
   AvailableExamsResponse,
   BuildStatus,
   ExamAdminPaper,
   ExamDiktat,
   ExamWriting,
+  GrammarPointsResponse,
   Health,
   Lang,
   LevelDetailResponse,
@@ -47,11 +49,18 @@ export class ApiError extends Error {
   }
 }
 
+/** 已登录时带上 SSO Bearer token；后端当前不强制校验，但便于后续逐步收紧。 */
+function authHeaders(): Record<string, string> {
+  const token = getSsoToken()
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...authHeaders(),
       ...init?.headers,
     },
   })
@@ -71,6 +80,7 @@ async function requestForm<T>(path: string, formData: FormData): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     body: formData,
+    headers: authHeaders(),
     // 注意：不要手动设 Content-Type，浏览器会自动加 boundary
   })
   const body: unknown = await response.json().catch(() => null)
@@ -91,7 +101,7 @@ async function requestBinary<T>(path: string, body: Blob, timeoutMs = 120_000): 
   try {
     response = await fetch(`${API_BASE}${path}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/octet-stream' },
+      headers: { 'Content-Type': 'application/octet-stream', ...authHeaders() },
       body,
       signal: controller.signal,
     })
@@ -385,6 +395,13 @@ export const api = {
 
   getSpeakingPlan: (id: number) =>
     request<SpeakingPlanDetailResponse>(`/api/speaking/plans/${id}`),
+
+  listGrammarPoints: (params: { lang?: string; level?: string }) => {
+    const query = new URLSearchParams()
+    if (params.lang) query.set('lang', params.lang)
+    if (params.level) query.set('level', params.level)
+    return request<GrammarPointsResponse>(`/api/speaking/grammar-points?${query.toString()}`)
+  },
 
   createSpeakingPlan: (payload: SpeakingPlanInput) =>
     request<{ id: number }>('/api/speaking/plans', {

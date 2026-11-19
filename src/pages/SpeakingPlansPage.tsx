@@ -20,6 +20,9 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { api, errorMessage } from '../api'
 import type {
+  GrammarPoint,
+  GrammarRequirement,
+  SpeakingExamPart,
   SpeakingItem,
   SpeakingPlan,
   SpeakingPlanGeneratedEntry,
@@ -45,6 +48,7 @@ interface PlanFormValues {
   sort_order: number
   active: boolean
   item_keys: string[]
+  grammar_requirements?: GrammarRequirement[]
 }
 
 interface GenerateFormValues {
@@ -75,6 +79,8 @@ export default function SpeakingPlansPage() {
 
   const [items, setItems] = useState<SpeakingItem[]>([])
   const [loadingItems, setLoadingItems] = useState(false)
+  const [examParts, setExamParts] = useState<SpeakingExamPart[]>([])
+  const [grammarPoints, setGrammarPoints] = useState<GrammarPoint[]>([])
   const formLevel = Form.useWatch('level', form)
 
   const loadPlans = async () => {
@@ -117,6 +123,69 @@ export default function SpeakingPlansPage() {
     }
   }, [formOpen, formLevel])
 
+  // 弹窗内按所选等级加载考试部分（用于 hint_parts 选项）与可选语法点
+  useEffect(() => {
+    if (!formOpen || !formLevel) {
+      setExamParts([])
+      setGrammarPoints([])
+      return
+    }
+    let cancelled = false
+    api
+      .listSpeakingExamParts({ lang: 'de', level: formLevel, activeOnly: false })
+      .then((res) => {
+        if (!cancelled) setExamParts(res.parts ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setExamParts([])
+      })
+    api
+      .listGrammarPoints({ lang: 'de', level: formLevel })
+      .then((res) => {
+        if (!cancelled) setGrammarPoints(res.points ?? [])
+      })
+      .catch(() => {
+        if (!cancelled) setGrammarPoints([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [formOpen, formLevel])
+
+  const hintPartOptions = useMemo(() => {
+    if (examParts.length > 0) {
+      return examParts.map((part) => ({ value: part.part_key, label: part.title }))
+    }
+    return Object.entries(PART_LABELS).map(([value, label]) => ({ value, label }))
+  }, [examParts])
+
+  const grammarPointOptions = useMemo(
+    () =>
+      grammarPoints.map((point) => ({
+        value: point.key,
+        label: `${point.label}${point.level ? ` · ${point.level}` : ''}${
+          point.patterns.length === 0 ? '（未配置判定规则，不可选）' : ''
+        }`,
+        disabled: point.patterns.length === 0,
+      })),
+    [grammarPoints],
+  )
+
+  const pickGrammarPoint = (index: number, key: string) => {
+    const point = grammarPoints.find((item) => item.key === key)
+    if (!point) return
+    const current = form.getFieldValue(['grammar_requirements', index]) ?? {}
+    form.setFieldValue(['grammar_requirements', index], {
+      key: point.key,
+      label: point.label,
+      source_path: point.source_path,
+      patterns: point.patterns,
+      min_uses: current.min_uses ?? 1,
+      enforce: current.enforce === 'warn' ? 'warn' : 'block',
+      hint_parts: Array.isArray(current.hint_parts) ? current.hint_parts : [],
+    })
+  }
+
   const itemOptions = useMemo(() => {
     const groups = new Map<string, { label: string; value: string }[]>()
     for (const item of items) {
@@ -139,6 +208,7 @@ export default function SpeakingPlansPage() {
       sort_order: 0,
       active: true,
       item_keys: [],
+      grammar_requirements: [],
     })
     setFormOpen(true)
   }
@@ -155,6 +225,7 @@ export default function SpeakingPlansPage() {
         sort_order: plan.sort_order,
         active: plan.active,
         item_keys: detail.items.map((item) => item.item_key),
+        grammar_requirements: detail.plan.grammar_requirements ?? [],
       })
       setFormOpen(true)
     } catch (error) {
@@ -169,6 +240,8 @@ export default function SpeakingPlansPage() {
     } catch {
       return
     }
+    // getFieldsValue(true) 能取到未注册为表单项的 label/patterns 等隐藏字段
+    const all = form.getFieldsValue(true) as PlanFormValues
     const payload: SpeakingPlanInput = {
       lang: editing?.lang ?? 'de',
       level: values.level,
@@ -177,6 +250,7 @@ export default function SpeakingPlansPage() {
       active: values.active ?? true,
       sort_order: values.sort_order ?? 0,
       item_keys: values.item_keys ?? [],
+      grammar_requirements: all.grammar_requirements ?? [],
     }
     setSubmitting(true)
     try {
@@ -259,6 +333,7 @@ export default function SpeakingPlansPage() {
         active,
         sort_order: plan.sort_order,
         item_keys: detail.items.map((item) => item.item_key),
+        grammar_requirements: detail.plan.grammar_requirements ?? [],
       })
       message.success(active ? '已启用' : '已停用')
     } catch (error) {
@@ -423,6 +498,108 @@ export default function SpeakingPlansPage() {
               maxTagCount="responsive"
             />
           </Form.Item>
+
+          <Form.List name="grammar_requirements">
+            {(fields, { add, remove }) => (
+              <div style={{ marginBottom: 8 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 8,
+                  }}
+                >
+                  <span>语法要求（整场任意回答达成即可，最多 3 条）</span>
+                  <Button
+                    size="small"
+                    icon={<PlusOutlined />}
+                    disabled={fields.length >= 3}
+                    onClick={() => add({ min_uses: 1, enforce: 'block', hint_parts: [] })}
+                  >
+                    添加要求
+                  </Button>
+                </div>
+                {fields.length === 0 && (
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    未配置。配置后，未达成的语法要求会在考试中阻断推进，并进入补答流程。
+                  </Typography.Text>
+                )}
+                {fields.map((field) => (
+                  <div
+                    key={field.key}
+                    style={{
+                      border: '1px solid #f0f0f0',
+                      borderRadius: 8,
+                      padding: '12px 12px 0',
+                      marginTop: 8,
+                    }}
+                  >
+                    <Space size={12} align="start" wrap style={{ width: '100%' }}>
+                      <Form.Item
+                        {...field}
+                        name={[field.name, 'key']}
+                        label="语法点"
+                        rules={[{ required: true, message: '请选择语法点' }]}
+                        style={{ width: 280, marginBottom: 12 }}
+                      >
+                        <Select
+                          showSearch
+                          optionFilterProp="label"
+                          options={grammarPointOptions}
+                          placeholder="从语法库选择"
+                          onChange={(value: string) => pickGrammarPoint(field.name, value)}
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        {...field}
+                        name={[field.name, 'min_uses']}
+                        label="需完成次数"
+                        style={{ width: 110, marginBottom: 12 }}
+                      >
+                        <InputNumber min={1} max={10} precision={0} style={{ width: '100%' }} />
+                      </Form.Item>
+                      <Form.Item
+                        {...field}
+                        name={[field.name, 'enforce']}
+                        label="未达成处理"
+                        style={{ width: 130, marginBottom: 12 }}
+                      >
+                        <Select
+                          options={[
+                            { value: 'block', label: '阻断推进' },
+                            { value: 'warn', label: '仅提示' },
+                          ]}
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        {...field}
+                        name={[field.name, 'hint_parts']}
+                        label="建议出现部分（仅提示）"
+                        style={{ minWidth: 220, flex: 1, marginBottom: 12 }}
+                      >
+                        <Select
+                          mode="multiple"
+                          allowClear
+                          options={hintPartOptions}
+                          placeholder="可选"
+                        />
+                      </Form.Item>
+                      <Button
+                        danger
+                        type="link"
+                        icon={<DeleteOutlined />}
+                        style={{ marginTop: 30 }}
+                        onClick={() => remove(field.name)}
+                      >
+                        移除
+                      </Button>
+                    </Space>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Form.List>
         </Form>
       </Modal>
 
