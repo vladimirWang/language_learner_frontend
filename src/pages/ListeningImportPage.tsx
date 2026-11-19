@@ -20,10 +20,21 @@ interface GenerateFormValues {
   device_id?: string
 }
 
+interface SSEEvent {
+  type: string
+  job_id: string
+  stage?: string
+  level?: string
+  message?: string
+  data?: Record<string, unknown>
+}
+
 const LEVEL_OPTIONS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'N5', 'N4', 'N3', 'N2', 'N1'].map((value) => ({
   value,
   label: value,
 }))
+
+const API_BASE = '' // 走 vite proxy，空字符串即同源
 
 export default function ListeningImportPage() {
   const { message } = AntApp.useApp()
@@ -33,8 +44,8 @@ export default function ListeningImportPage() {
   const [submitting, setSubmitting] = useState(false)
   const [answersFile, setAnswersFile] = useState<File | null>(null)
   const [cookiesFile, setCookiesFile] = useState<File | null>(null)
-  const [generating, setGenerating] = useState(false)
   const [genResult, setGenResult] = useState<{
+    job_id: string
     exam_id: string
     title: string
     dialogue_lines: number
@@ -78,8 +89,6 @@ export default function ListeningImportPage() {
       message.warning('请选择难度')
       return
     }
-    setGenerating(true)
-    setGenResult(null)
     try {
       const res = await api.generateListening({
         lang: values.lang,
@@ -88,18 +97,41 @@ export default function ListeningImportPage() {
         question_count: values.question_count,
         device_id: values.device_id?.trim() || undefined,
       })
-      setGenResult({
-        exam_id: res.exam_id,
-        title: res.title,
-        dialogue_lines: res.dialogue_lines,
-        question_count: res.question_count,
-        vocabulary_used: res.vocabulary_used,
+      // 立即放开按钮——HTTP 202 只代表"任务已入队"
+      setGenResult(null)
+      message.success('任务已提交，生成完成后会自动展示结果')
+
+      // 只订阅最终 success / error，不跟踪中间进度
+      const es = new EventSource(`${API_BASE}${res.sse_endpoint}`)
+      es.addEventListener('success', (ev) => {
+        const evt = (ev as MessageEvent).data ? (JSON.parse((ev as MessageEvent).data) as SSEEvent) : null
+        if (evt) {
+          const d = (evt.data as Record<string, unknown>) || {}
+          setGenResult({
+            job_id: evt.job_id,
+            exam_id: (d.exam_id as string) || '',
+            title: (d.title as string) || evt.message || '生成完成',
+            dialogue_lines: (d.dialogue_lines as number) || 0,
+            question_count: (d.question_count as number) || 0,
+            vocabulary_used: (d.vocabulary_used as string[]) || [],
+          })
+          message.success('AI 听力生成完成！')
+        }
+        es.close()
       })
-      message.success(`生成完成：${res.title}`)
+      es.addEventListener('error', (ev) => {
+        const evt = (ev as MessageEvent).data ? (JSON.parse((ev as MessageEvent).data) as SSEEvent) : null
+        if (evt) {
+          message.error(`生成失败：${evt.message}`)
+        }
+        es.close()
+      })
+      // 兜底：超时关闭，避免长时间悬挂
+      setTimeout(() => {
+        if (es.readyState !== EventSource.CLOSED) es.close()
+      }, 300000)
     } catch (error) {
       message.error(errorMessage(error))
-    } finally {
-      setGenerating(false)
     }
   }
 
@@ -257,7 +289,7 @@ export default function ListeningImportPage() {
                 <Input placeholder="admin" allowClear />
               </Form.Item>
 
-              <Button type="primary" htmlType="submit" loading={generating} icon={<BulbOutlined />}>
+              <Button type="primary" htmlType="submit" icon={<BulbOutlined />}>
                 开始生成
               </Button>
             </Form>

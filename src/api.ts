@@ -11,10 +11,11 @@ import type {
   LevelDetailResponse,
   LevelsResponse,
   ListeningFilesResponse,
-  ListeningGenerateResult,
+  ListeningGenerateAccepted,
   ListeningImportResult,
   ListeningJobDetailResponse,
   ListeningJobsResponse,
+  NotificationsResponse,
   PdfBlock,
   PdfExamQuestion,
   PdfImportJobDetailResponse,
@@ -165,7 +166,17 @@ export const api = {
     topic?: string
     question_count?: number
   }) =>
-    request<ListeningGenerateResult>('/api/listening/generate', {
+    request<ListeningGenerateAccepted>('/api/listening/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  // --- 系统通知 ---
+  listNotifications: (limit = 50) =>
+    request<NotificationsResponse>(`/api/notifications?limit=${limit}`),
+
+  markNotificationRead: (payload: { id?: number; all?: boolean }) =>
+    request<{ ok?: boolean; marked?: number }>('/api/notifications/mark-read', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

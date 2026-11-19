@@ -1,6 +1,7 @@
 import {
   AppstoreOutlined,
   AudioOutlined,
+  BellOutlined,
   BookOutlined,
   CloudDownloadOutlined,
   DashboardOutlined,
@@ -13,9 +14,11 @@ import {
   UnorderedListOutlined,
   ProfileOutlined,
 } from '@ant-design/icons'
-import { Button, Layout, Menu, Space, Typography, type MenuProps } from 'antd'
+import { Badge, Button, Layout, Menu, Space, Typography, type MenuProps } from 'antd'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { getSsoUser, logoutSso } from '../auth'
+import { api } from '../api'
 
 const menuItems: MenuProps['items'] = [
   { key: '/', icon: <DashboardOutlined />, label: '概览' },
@@ -50,6 +53,27 @@ const menuItems: MenuProps['items'] = [
 export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [unread, setUnread] = useState(0)
+
+  const refreshUnread = async () => {
+    try {
+      const res = await api.listNotifications(1)
+      setUnread(res.unread_count)
+    } catch {
+      // 通知接口可能暂未上线，静默忽略
+    }
+  }
+
+  useEffect(() => {
+    void refreshUnread()
+    const t = setInterval(() => {
+      if (!location.pathname.startsWith('/notifications')) {
+        void refreshUnread()
+      }
+    }, 30000)
+    return () => clearInterval(t)
+  }, [location.pathname])
+
   const selectedKey =
     location.pathname.startsWith('/listening') ||
     location.pathname.startsWith('/pdf-import') ||
@@ -81,6 +105,12 @@ export default function AdminLayout() {
         <Layout.Header className="app-header">
           <Typography.Text strong>语言学习 Agent · 素材版本服务</Typography.Text>
           <Space size={12}>
+            <Badge count={unread} offset={[-2, 2]}>
+              <BellOutlined
+                style={{ fontSize: 18, cursor: 'pointer', color: '#555' }}
+                onClick={() => navigate('/notifications')}
+              />
+            </Badge>
             <Typography.Text type="secondary">
               {getSsoUser()?.email ?? getSsoUser()?.username ?? ''}
             </Typography.Text>

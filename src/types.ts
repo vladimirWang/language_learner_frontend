@@ -123,6 +123,31 @@ export interface ListeningGenerateResult {
   vocabulary_used: string[]
 }
 
+export interface ListeningGenerateAccepted {
+  job_id: string
+  exam_id: string
+  status: 'pending'
+  message: string
+  sse_endpoint: string
+  detail_endpoint: string
+}
+
+export interface SystemNotification {
+  id: number
+  job_id: string
+  event_type: 'progress' | 'success' | 'error' | 'info'
+  title: string
+  message: string
+  payload?: Record<string, unknown>
+  created_at: string
+  read_at?: string | null
+}
+
+export interface NotificationsResponse {
+  notifications: SystemNotification[]
+  unread_count: number
+}
+
 export interface ListeningJobsResponse {
   jobs: ListeningJob[]
 }

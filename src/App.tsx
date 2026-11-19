@@ -9,6 +9,7 @@ import ExamLibraryPage from './pages/ExamLibraryPage'
 import ListeningImportPage from './pages/ListeningImportPage'
 import ListeningJobsPage from './pages/ListeningJobsPage'
 import LevelsPage from './pages/LevelsPage'
+import NotificationsPage from './pages/NotificationsPage'
 import LoginPage from './pages/LoginPage'
 import SsoCallbackPage from './pages/SsoCallbackPage'
 import PdfBlocksPage from './pages/PdfBlocksPage'
@@ -54,6 +55,7 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="builds" element={<BuildsPage />} />
           <Route path="versions" element={<VersionsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="listening" element={<ListeningImportPage />} />
           <Route path="listening/jobs" element={<ListeningJobsPage />} />
           <Route path="levels" element={<LevelsPage />} />
