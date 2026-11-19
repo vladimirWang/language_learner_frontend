@@ -495,3 +495,36 @@ export interface PdfUploadCompleteResponse {
   original_name?: string
   warning?: string
 }
+
+// ---------------------------------------------------------------------------
+// 新词库
+// ---------------------------------------------------------------------------
+
+export interface VocabWord {
+  word_id: number
+  lang: string
+  lemma: string
+  level: string
+  word_type?: string
+  gender?: string
+  plural?: string
+  chinese_mean: string
+  english_mean?: string
+  example_de?: string
+  source_md_path?: string
+  updated_at: string
+}
+
+export interface VocabWordsResponse {
+  words: VocabWord[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface VocabImportResult {
+  dry_run: boolean
+  inserted: number
+  updated: number
+  total: number
+}

@@ -35,17 +35,23 @@ import type {
   TriggerResult,
   ValidateSpeakingItemResult,
   VersionInfo,
+  VocabImportResult,
+  VocabWord,
+  VocabWordsResponse,
 } from './types'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
 export class ApiError extends Error {
   readonly status: number
+  /** 批量操作返回的逐条错误（例如 CSV 导入的行级校验失败）。 */
+  readonly details?: string[]
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, details?: string[]) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.details = details
   }
 }
 
@@ -71,7 +77,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       body && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
         ? body.error
         : `请求失败（HTTP ${response.status}）`
-    throw new ApiError(response.status, message)
+    const details =
+      body && typeof body === 'object' && 'errors' in body && Array.isArray(body.errors)
+        ? (body.errors as unknown[]).map((item) => String(item))
+        : undefined
+    throw new ApiError(response.status, message, details)
   }
   return body as T
 }
@@ -89,7 +99,11 @@ async function requestForm<T>(path: string, formData: FormData): Promise<T> {
       body && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
         ? body.error
         : `请求失败（HTTP ${response.status}）`
-    throw new ApiError(response.status, message)
+    const details =
+      body && typeof body === 'object' && 'errors' in body && Array.isArray(body.errors)
+        ? (body.errors as unknown[]).map((item) => String(item))
+        : undefined
+    throw new ApiError(response.status, message, details)
   }
   return body as T
 }
@@ -476,6 +490,44 @@ export const api = {
 
   deleteSpeakingTemplate: (id: number) =>
     request<{ ok: boolean }>(`/api/speaking/templates/${id}`, { method: 'DELETE' }),
+
+  // 新词库：管理台直接维护 vocab_words，并提供 CSV 导入
+  listVocabWords: (params: {
+    lang?: string
+    level?: string
+    q?: string
+    limit?: number
+    offset?: number
+  }) => {
+    const query = new URLSearchParams()
+    if (params.lang) query.set('lang', params.lang)
+    if (params.level) query.set('level', params.level)
+    if (params.q) query.set('q', params.q)
+    if (params.limit) query.set('limit', String(params.limit))
+    if (params.offset) query.set('offset', String(params.offset))
+    return request<VocabWordsResponse>(`/api/vocab?${query.toString()}`)
+  },
+
+  createVocabWord: (payload: Omit<VocabWord, 'word_id' | 'updated_at'>) =>
+    request<{ word_id: number }>('/api/vocab', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateVocabWord: (id: number, payload: Omit<VocabWord, 'word_id' | 'updated_at'>) =>
+    request<{ ok: boolean }>(`/api/vocab/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteVocabWord: (id: number) =>
+    request<{ ok: boolean }>(`/api/vocab/${id}`, { method: 'DELETE' }),
+
+  importVocabWords: (payload: { lang: string; csv: string; dry_run?: boolean }) =>
+    request<VocabImportResult>('/api/vocab/import', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 }
 
 /** 拼出可直接用于 <a download> 的完整地址（含 VITE_API_BASE 前缀）。 */

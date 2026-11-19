@@ -1,6 +1,7 @@
 import {
   AppstoreOutlined,
   AudioOutlined,
+  BookOutlined,
   CloudDownloadOutlined,
   DashboardOutlined,
   FileTextOutlined,
@@ -42,6 +43,7 @@ const menuItems: MenuProps['items'] = [
     ],
   },
   { key: '/speaking-templates', icon: <MessageOutlined />, label: '口语话术' },
+  { key: '/vocab', icon: <BookOutlined />, label: '新词库' },
   { key: '/versions', icon: <CloudDownloadOutlined />, label: '版本查询' },
 ]
 

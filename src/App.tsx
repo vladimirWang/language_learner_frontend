@@ -18,6 +18,7 @@ import SpeakingExamPartsPage from './pages/SpeakingExamPartsPage'
 import SpeakingPage from './pages/SpeakingPage'
 import SpeakingPlansPage from './pages/SpeakingPlansPage'
 import SpeakingTemplatesPage from './pages/SpeakingTemplatesPage'
+import VocabPage from './pages/VocabPage'
 import VersionsPage from './pages/VersionsPage'
 
 /**
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="speaking/exam-parts" element={<SpeakingExamPartsPage />} />
           <Route path="speaking/plans" element={<SpeakingPlansPage />} />
           <Route path="speaking-templates" element={<SpeakingTemplatesPage />} />
+          <Route path="vocab" element={<VocabPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>
