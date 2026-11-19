@@ -13,6 +13,9 @@ export interface AdminSsoUser {
 
 export interface SsoConfig {
   enabled: boolean
+  /** 本地开发挡板：true 时直接以 mockEmail 登录，不跳转 SSO */
+  mock?: boolean
+  mock_email?: string
   authorize_url: string
   client_id: string
   redirect_uri: string
@@ -104,6 +107,11 @@ export async function exchangeSsoCode(code: string, redirectUri: string): Promis
   if (!body.access_token || !body.user) throw new Error('SSO 返回数据不完整')
   saveSession(body.access_token, body.user)
   return body.user
+}
+
+/** 开发挡板登录：不跳转 SSO，直接用固定 code 换取后端 mock 账号。 */
+export async function loginWithSsoMock(): Promise<AdminSsoUser> {
+  return exchangeSsoCode('dev-mock', '')
 }
 
 /** 校验本地 token 是否仍有效；失效时清除本地会话。 */

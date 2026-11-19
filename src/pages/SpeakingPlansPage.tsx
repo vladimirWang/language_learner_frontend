@@ -41,6 +41,16 @@ const PART_LABELS: Record<string, string> = {
   part3_discussion: '第三部分',
 }
 
+interface GrammarRequirementForm {
+  // 一行可多选语法点，共用该行的次数 / 处理方式 / 提示部分
+  keys: string[]
+  min_uses: number
+  enforce: 'block' | 'warn'
+  hint_parts: string[]
+  // 编辑旧方案时保留库中已不存在的语法点信息
+  meta?: Record<string, Pick<GrammarRequirement, 'label' | 'source_path' | 'patterns'>>
+}
+
 interface PlanFormValues {
   level: string
   name: string
@@ -48,7 +58,7 @@ interface PlanFormValues {
   sort_order: number
   active: boolean
   item_keys: string[]
-  grammar_requirements?: GrammarRequirement[]
+  grammar_requirements?: GrammarRequirementForm[]
 }
 
 interface GenerateFormValues {
@@ -82,6 +92,13 @@ export default function SpeakingPlansPage() {
   const [examParts, setExamParts] = useState<SpeakingExamPart[]>([])
   const [grammarPoints, setGrammarPoints] = useState<GrammarPoint[]>([])
   const formLevel = Form.useWatch('level', form)
+  const grammarRows = Form.useWatch('grammar_requirements', form) as
+    | GrammarRequirementForm[]
+    | undefined
+  const selectedGrammarCount = useMemo(
+    () => new Set((grammarRows ?? []).flatMap((row) => row.keys ?? [])).size,
+    [grammarRows],
+  )
 
   const loadPlans = async () => {
     setLoading(true)
@@ -139,8 +156,9 @@ export default function SpeakingPlansPage() {
       .catch(() => {
         if (!cancelled) setExamParts([])
       })
+    // 语法点按语种全量加载：低等级方案（如 A1）没有对应等级语法文档时也能选择
     api
-      .listGrammarPoints({ lang: 'de', level: formLevel })
+      .listGrammarPoints({ lang: 'de' })
       .then((res) => {
         if (!cancelled) setGrammarPoints(res.points ?? [])
       })
@@ -170,20 +188,26 @@ export default function SpeakingPlansPage() {
     [grammarPoints],
   )
 
-  const pickGrammarPoint = (index: number, key: string) => {
-    const point = grammarPoints.find((item) => item.key === key)
-    if (!point) return
-    const current = form.getFieldValue(['grammar_requirements', index]) ?? {}
-    form.setFieldValue(['grammar_requirements', index], {
-      key: point.key,
-      label: point.label,
-      source_path: point.source_path,
-      patterns: point.patterns,
-      min_uses: current.min_uses ?? 1,
-      // 未配置判定规则的语法点只能作为提示，强制 warn
-      enforce: point.patterns.length === 0 ? 'warn' : current.enforce === 'warn' ? 'warn' : 'block',
-      hint_parts: Array.isArray(current.hint_parts) ? current.hint_parts : [],
+  const handleGrammarKeysChange = (index: number, keys: string[]) => {
+    // 全方案最多 3 个语法点，超出部分直接截断
+    const rows = (form.getFieldValue('grammar_requirements') ?? []) as GrammarRequirementForm[]
+    const otherKeys = new Set(
+      rows.flatMap((row, rowIndex) => (rowIndex === index ? [] : row.keys ?? [])),
+    )
+    const allowed = Math.max(0, 3 - otherKeys.size)
+    const nextKeys = keys.length > allowed ? keys.slice(0, allowed) : keys
+    if (nextKeys.length !== keys.length) {
+      message.warning('最多配置 3 个语法点')
+      form.setFieldValue(['grammar_requirements', index, 'keys'], nextKeys)
+    }
+    // 任一语法点未配置判定规则时，整行只能作为提示
+    const lacksPatterns = nextKeys.some((key) => {
+      const point = grammarPoints.find((item) => item.key === key)
+      return !point || point.patterns.length === 0
     })
+    if (lacksPatterns) {
+      form.setFieldValue(['grammar_requirements', index, 'enforce'], 'warn')
+    }
   }
 
   const itemOptions = useMemo(() => {
@@ -218,6 +242,21 @@ export default function SpeakingPlansPage() {
     form.resetFields()
     try {
       const detail = await api.getSpeakingPlan(plan.id)
+      const requirements: GrammarRequirementForm[] = (
+        detail.plan.grammar_requirements ?? []
+      ).map((item) => ({
+        keys: [item.key],
+        min_uses: item.min_uses ?? 1,
+        enforce: item.enforce === 'warn' ? 'warn' : 'block',
+        hint_parts: item.hint_parts ?? [],
+        meta: {
+          [item.key]: {
+            label: item.label,
+            source_path: item.source_path,
+            patterns: item.patterns ?? [],
+          },
+        },
+      }))
       form.setFieldsValue({
         level: plan.level,
         name: plan.name,
@@ -225,7 +264,7 @@ export default function SpeakingPlansPage() {
         sort_order: plan.sort_order,
         active: plan.active,
         item_keys: detail.items.map((item) => item.item_key),
-        grammar_requirements: detail.plan.grammar_requirements ?? [],
+        grammar_requirements: requirements,
       })
       setFormOpen(true)
     } catch (error) {
@@ -240,8 +279,32 @@ export default function SpeakingPlansPage() {
     } catch {
       return
     }
-    // getFieldsValue(true) 能取到未注册为表单项的 label/patterns 等隐藏字段
     const all = form.getFieldsValue(true) as PlanFormValues
+    // 把“一行多选”展开成后端的单语法点要求；未配置判定规则时强制降级为提示
+    const requirements: GrammarRequirement[] = []
+    const seenKeys = new Set<string>()
+    for (const row of all.grammar_requirements ?? []) {
+      for (const key of row.keys ?? []) {
+        if (!key || seenKeys.has(key)) continue
+        seenKeys.add(key)
+        const point = grammarPoints.find((item) => item.key === key)
+        const fallback = row.meta?.[key]
+        const patterns = point?.patterns ?? fallback?.patterns ?? []
+        requirements.push({
+          key,
+          label: point?.label ?? fallback?.label ?? key,
+          source_path: point?.source_path ?? fallback?.source_path ?? '',
+          patterns,
+          min_uses: row.min_uses ?? 1,
+          enforce: patterns.length === 0 ? 'warn' : row.enforce === 'warn' ? 'warn' : 'block',
+          hint_parts: row.hint_parts ?? [],
+        })
+      }
+    }
+    if (requirements.length > 3) {
+      message.error('最多配置 3 个语法点，请减少选择')
+      return
+    }
     const payload: SpeakingPlanInput = {
       lang: editing?.lang ?? 'de',
       level: values.level,
@@ -250,7 +313,7 @@ export default function SpeakingPlansPage() {
       active: values.active ?? true,
       sort_order: values.sort_order ?? 0,
       item_keys: values.item_keys ?? [],
-      grammar_requirements: all.grammar_requirements ?? [],
+      grammar_requirements: requirements,
     }
     setSubmitting(true)
     try {
@@ -510,12 +573,14 @@ export default function SpeakingPlansPage() {
                     marginBottom: 8,
                   }}
                 >
-                  <span>语法要求（整场任意回答达成即可，最多 3 条）</span>
+                  <span>
+                    语法要求（整场任意回答达成即可，已选 {selectedGrammarCount}/3 个语法点）
+                  </span>
                   <Button
                     size="small"
                     icon={<PlusOutlined />}
-                    disabled={fields.length >= 3}
-                    onClick={() => add({ min_uses: 1, enforce: 'block', hint_parts: [] })}
+                    disabled={selectedGrammarCount >= 3}
+                    onClick={() => add({ keys: [], min_uses: 1, enforce: 'block', hint_parts: [] })}
                   >
                     添加要求
                   </Button>
@@ -538,17 +603,19 @@ export default function SpeakingPlansPage() {
                     <Space size={12} align="start" wrap style={{ width: '100%' }}>
                       <Form.Item
                         {...field}
-                        name={[field.name, 'key']}
-                        label="语法点"
+                        name={[field.name, 'keys']}
+                        label="语法点（可多选）"
                         rules={[{ required: true, message: '请选择语法点' }]}
-                        style={{ width: 280, marginBottom: 12 }}
+                        style={{ width: 360, marginBottom: 12 }}
                       >
                         <Select
+                          mode="multiple"
                           showSearch
                           optionFilterProp="label"
+                          maxTagCount="responsive"
                           options={grammarPointOptions}
-                          placeholder="从语法库选择"
-                          onChange={(value: string) => pickGrammarPoint(field.name, value)}
+                          placeholder="从语法库选择，可多选"
+                          onChange={(keys: string[]) => handleGrammarKeysChange(field.name, keys)}
                         />
                       </Form.Item>
                       <Form.Item
@@ -561,12 +628,18 @@ export default function SpeakingPlansPage() {
                       </Form.Item>
                       <Form.Item noStyle shouldUpdate>
                         {() => {
-                          const patterns = form.getFieldValue([
+                          const keys = form.getFieldValue([
                             'grammar_requirements',
                             field.name,
-                            'patterns',
-                          ])
-                          const lacksPatterns = !Array.isArray(patterns) || patterns.length === 0
+                            'keys',
+                          ]) as string[] | undefined
+                          const lacksPatterns =
+                            !Array.isArray(keys) ||
+                            keys.length === 0 ||
+                            keys.some((key) => {
+                              const point = grammarPoints.find((item) => item.key === key)
+                              return !point || point.patterns.length === 0
+                            })
                           return (
                             <Form.Item
                               {...field}
@@ -609,15 +682,20 @@ export default function SpeakingPlansPage() {
                     </Space>
                     <Form.Item noStyle shouldUpdate>
                       {() => {
-                        const patterns = form.getFieldValue([
+                        const keys = form.getFieldValue([
                           'grammar_requirements',
                           field.name,
-                          'patterns',
-                        ])
-                        if (Array.isArray(patterns) && patterns.length > 0) return null
+                          'keys',
+                        ]) as string[] | undefined
+                        if (!Array.isArray(keys) || keys.length === 0) return null
+                        const missing = keys.filter((key) => {
+                          const point = grammarPoints.find((item) => item.key === key)
+                          return !point || point.patterns.length === 0
+                        })
+                        if (missing.length === 0) return null
                         return (
                           <div style={{ fontSize: 12, color: '#B9770E', margin: '-4px 0 10px' }}>
-                            该语法点尚未配置判定规则，只能作为提示，不能设置为阻断。
+                            所选语法点中「{missing.join('、')}」尚未配置判定规则，整行只能作为提示。
                           </div>
                         )
                       }}

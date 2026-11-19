@@ -1,6 +1,6 @@
 import { Alert, App as AntApp, Button, Card, Space, Typography } from 'antd'
 import { useEffect, useState } from 'react'
-import { fetchSsoConfig, startSsoLogin, type SsoConfig } from '../auth'
+import { fetchSsoConfig, loginWithSsoMock, startSsoLogin, type SsoConfig } from '../auth'
 
 /** 未登录时展示的 SSO 入口。 */
 export default function LoginPage() {
@@ -16,10 +16,22 @@ export default function LoginPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!config) return
     if (!config.enabled) {
       message.error('服务端尚未配置 SSO 登录')
+      return
+    }
+    if (config.mock) {
+      setLoading(true)
+      setError('')
+      try {
+        await loginWithSsoMock()
+        window.location.replace('/')
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        setLoading(false)
+      }
       return
     }
     startSsoLogin(config)
@@ -44,6 +56,14 @@ export default function LoginPage() {
             <Typography.Text type="secondary">使用统一账号（SSO）登录后继续操作</Typography.Text>
           </div>
           {error && <Alert type="error" showIcon message="无法获取登录配置" description={error} />}
+          {config?.mock && (
+            <Alert
+              type="info"
+              showIcon
+              message="开发挡板已启用"
+              description={`将直接以 ${config.mock_email ?? '固定开发账号'} 登录，不会跳转 SSO。`}
+            />
+          )}
           {config && !config.enabled && (
             <Alert
               type="warning"
