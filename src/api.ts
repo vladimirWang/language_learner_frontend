@@ -11,6 +11,7 @@ import type {
   LevelDetailResponse,
   LevelsResponse,
   ListeningFilesResponse,
+  ListeningGenerateResult,
   ListeningImportResult,
   ListeningJobDetailResponse,
   ListeningJobsResponse,
@@ -156,6 +157,18 @@ export const api = {
 
   importListening: (formData: FormData) =>
     requestForm<ListeningImportResult>('/api/listening/import', formData),
+
+  generateListening: (payload: {
+    lang: string
+    level: string
+    device_id?: string
+    topic?: string
+    question_count?: number
+  }) =>
+    request<ListeningGenerateResult>('/api/listening/generate', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   listeningJobs: (limit = 50) =>
     request<ListeningJobsResponse>(`/api/listening/jobs?limit=${limit}`),

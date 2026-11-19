@@ -113,6 +113,16 @@ export interface ListeningImportResult {
   status: string
 }
 
+export interface ListeningGenerateResult {
+  job_id: string
+  exam_id: string
+  title: string
+  speaker_count: number
+  dialogue_lines: number
+  question_count: number
+  vocabulary_used: string[]
+}
+
 export interface ListeningJobsResponse {
   jobs: ListeningJob[]
 }
