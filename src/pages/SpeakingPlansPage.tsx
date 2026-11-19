@@ -41,6 +41,17 @@ const PART_LABELS: Record<string, string> = {
   part3_discussion: '第三部分',
 }
 
+const CEFR_RANK: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 }
+
+/** 语法点等级区间下限；未知等级返回 0。 */
+function grammarMinRank(level: string): number {
+  return level
+    .split('-')
+    .map((part) => CEFR_RANK[part.trim().toUpperCase()] ?? 0)
+    .filter((rank) => rank > 0)
+    .reduce((min, rank) => (min === 0 || rank < min ? rank : min), 0)
+}
+
 interface GrammarRequirementForm {
   // 一行可多选语法点，共用该行的次数 / 处理方式 / 提示部分
   keys: string[]
@@ -200,12 +211,15 @@ export default function SpeakingPlansPage() {
       message.warning('最多配置 3 个语法点')
       form.setFieldValue(['grammar_requirements', index, 'keys'], nextKeys)
     }
-    // 任一语法点未配置判定规则时，整行只能作为提示
-    const lacksPatterns = nextKeys.some((key) => {
+    // 未配置判定规则，或语法等级高于当前方案时，整行只能作为提示
+    const planRank = CEFR_RANK[String(form.getFieldValue('level') ?? '').toUpperCase()] ?? 0
+    const cannotBlock = nextKeys.some((key) => {
       const point = grammarPoints.find((item) => item.key === key)
-      return !point || point.patterns.length === 0
+      if (!point || point.patterns.length === 0) return true
+      const grammarRank = grammarMinRank(point.level)
+      return planRank > 0 && grammarRank > 0 && grammarRank > planRank
     })
-    if (lacksPatterns) {
+    if (cannotBlock) {
       form.setFieldValue(['grammar_requirements', index, 'enforce'], 'warn')
     }
   }
@@ -317,12 +331,12 @@ export default function SpeakingPlansPage() {
     }
     setSubmitting(true)
     try {
-      if (editing) {
-        await api.updateSpeakingPlan(editing.id, payload)
-        message.success('方案已更新')
-      } else {
-        await api.createSpeakingPlan(payload)
-        message.success('方案已创建')
+      const result = editing
+        ? await api.updateSpeakingPlan(editing.id, payload)
+        : await api.createSpeakingPlan(payload)
+      message.success(editing ? '方案已更新' : '方案已创建')
+      if (result.warnings?.length) {
+        message.warning(`已自动降级：${result.warnings.join('；')}`, 8)
       }
       setFormOpen(false)
       setRefreshTick((t) => t + 1)
@@ -388,7 +402,7 @@ export default function SpeakingPlansPage() {
   const handleToggleActive = async (plan: SpeakingPlan, active: boolean) => {
     try {
       const detail = await api.getSpeakingPlan(plan.id)
-      await api.updateSpeakingPlan(plan.id, {
+      const result = await api.updateSpeakingPlan(plan.id, {
         lang: plan.lang,
         level: plan.level,
         name: plan.name,
@@ -399,6 +413,9 @@ export default function SpeakingPlansPage() {
         grammar_requirements: detail.plan.grammar_requirements ?? [],
       })
       message.success(active ? '已启用' : '已停用')
+      if (result.warnings?.length) {
+        message.warning(`已自动降级：${result.warnings.join('；')}`, 8)
+      }
     } catch (error) {
       message.error(errorMessage(error))
     } finally {
@@ -633,12 +650,16 @@ export default function SpeakingPlansPage() {
                             field.name,
                             'keys',
                           ]) as string[] | undefined
+                          const planRank =
+                            CEFR_RANK[String(form.getFieldValue('level') ?? '').toUpperCase()] ?? 0
                           const lacksPatterns =
                             !Array.isArray(keys) ||
                             keys.length === 0 ||
                             keys.some((key) => {
                               const point = grammarPoints.find((item) => item.key === key)
-                              return !point || point.patterns.length === 0
+                              if (!point || point.patterns.length === 0) return true
+                              const grammarRank = grammarMinRank(point.level)
+                              return planRank > 0 && grammarRank > 0 && grammarRank > planRank
                             })
                           return (
                             <Form.Item
@@ -688,14 +709,26 @@ export default function SpeakingPlansPage() {
                           'keys',
                         ]) as string[] | undefined
                         if (!Array.isArray(keys) || keys.length === 0) return null
-                        const missing = keys.filter((key) => {
+                        const planRank =
+                          CEFR_RANK[String(form.getFieldValue('level') ?? '').toUpperCase()] ?? 0
+                        const missingPatterns = keys.filter((key) => {
                           const point = grammarPoints.find((item) => item.key === key)
                           return !point || point.patterns.length === 0
                         })
-                        if (missing.length === 0) return null
+                        const tooHigh = keys.filter((key) => {
+                          const point = grammarPoints.find((item) => item.key === key)
+                          if (!point) return false
+                          const grammarRank = grammarMinRank(point.level)
+                          return planRank > 0 && grammarRank > 0 && grammarRank > planRank
+                        })
+                        if (missingPatterns.length === 0 && tooHigh.length === 0) return null
                         return (
                           <div style={{ fontSize: 12, color: '#B9770E', margin: '-4px 0 10px' }}>
-                            所选语法点中「{missing.join('、')}」尚未配置判定规则，整行只能作为提示。
+                            {missingPatterns.length > 0 &&
+                              `所选语法点中「${missingPatterns.join('、')}」尚未配置判定规则。`}
+                            {tooHigh.length > 0 &&
+                              `所选语法点中「${tooHigh.join('、')}」等级高于当前方案。`}
+                            整行只能作为提示。
                           </div>
                         )
                       }}

@@ -404,7 +404,7 @@ export const api = {
   },
 
   createSpeakingPlan: (payload: SpeakingPlanInput) =>
-    request<{ id: number }>('/api/speaking/plans', {
+    request<{ id: number; warnings?: string[] }>('/api/speaking/plans', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
@@ -416,7 +416,7 @@ export const api = {
     }),
 
   updateSpeakingPlan: (id: number, payload: SpeakingPlanInput) =>
-    request<{ ok: boolean }>(`/api/speaking/plans/${id}`, {
+    request<{ ok: boolean; warnings?: string[] }>(`/api/speaking/plans/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),

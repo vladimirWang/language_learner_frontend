@@ -23,7 +23,7 @@ import {
 } from 'antd'
 import { useEffect, useState } from 'react'
 import { api, errorMessage } from '../api'
-import type { SpeakingItem } from '../types'
+import type { GrammarPoint, SpeakingItem } from '../types'
 
 const LEVEL_OPTIONS = [
   { value: 'A1', label: 'A1 - 入门' },
@@ -49,6 +49,7 @@ interface SpeakingFormValues {
   prompt_de: string
   prompt_zh?: string
   expected_points?: string[]
+  target_grammar?: string[]
   ref_answer?: string
   error_note?: string
   sort_order: number
@@ -78,6 +79,14 @@ export default function SpeakingPage() {
   const [editing, setEditing] = useState<SpeakingItem | null>(null)
   const [form] = Form.useForm<SpeakingFormValues>()
   const [submitting, setSubmitting] = useState(false)
+  const [grammarPoints, setGrammarPoints] = useState<GrammarPoint[]>([])
+
+  useEffect(() => {
+    api
+      .listGrammarPoints({ lang: 'de' })
+      .then((res) => setGrammarPoints(res.points ?? []))
+      .catch(() => setGrammarPoints([]))
+  }, [])
 
   const loadItems = async () => {
     setLoading(true)
@@ -116,6 +125,7 @@ export default function SpeakingPage() {
       prompt_de: item.prompt_de,
       prompt_zh: item.prompt_zh,
       expected_points: parsePoints(item.expected_points),
+      target_grammar: item.target_grammar ?? [],
       ref_answer: item.ref_answer,
       error_note: item.error_note,
       sort_order: item.sort_order,
@@ -149,6 +159,7 @@ export default function SpeakingPage() {
         prompt_de: values.prompt_de.trim(),
         prompt_zh: values.prompt_zh?.trim() ?? '',
         expected_points: JSON.stringify(values.expected_points ?? []),
+        target_grammar: values.target_grammar ?? [],
         ref_answer: values.ref_answer?.trim() ?? '',
         error_note: values.error_note?.trim() ?? '',
         sort_order: values.sort_order ?? 0,
@@ -239,6 +250,7 @@ export default function SpeakingPage() {
         prompt_de: item.prompt_de,
         prompt_zh: item.prompt_zh,
         expected_points: item.expected_points,
+        target_grammar: item.target_grammar ?? [],
         ref_answer: item.ref_answer,
         error_note: item.error_note,
         sort_order: item.sort_order,
@@ -437,6 +449,24 @@ export default function SpeakingPage() {
             extra="输入德语关键词后回车添加；用于 client 端的要点覆盖提示。"
           >
             <Select mode="tags" open={false} placeholder="如：heiße、Name ist" />
+          </Form.Item>
+
+          <Form.Item
+            label="可引出语法点"
+            name="target_grammar"
+            extra="标注该题能自然使用的语法点；方案中的阻断型语法要求必须至少有一道题标注，否则保存时会自动降级为提示。"
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="选择该题能自然引出的语法点"
+              options={grammarPoints.map((point) => ({
+                value: point.key,
+                label: `${point.label}${point.level ? ` · ${point.level}` : ''}`,
+              }))}
+            />
           </Form.Item>
 
           <Form.Item label="参考回答" name="ref_answer">

@@ -228,6 +228,8 @@ export interface SpeakingItem {
   prompt_de: string
   prompt_zh: string
   expected_points: string
+  /** 该题能自然引出的语法点 key，用于方案语法要求承载校验 */
+  target_grammar?: string[]
   ref_answer: string
   error_note: string
   sort_order: number
