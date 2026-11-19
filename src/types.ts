@@ -527,4 +527,7 @@ export interface VocabImportResult {
   inserted: number
   updated: number
   total: number
+  /** 标记为某天已学时的结果，仅当请求 tag_learned=true 且成功时返回。 */
+  learned_marked?: number
+  learned_ignored?: number
 }

@@ -523,7 +523,13 @@ export const api = {
   deleteVocabWord: (id: number) =>
     request<{ ok: boolean }>(`/api/vocab/${id}`, { method: 'DELETE' }),
 
-  importVocabWords: (payload: { lang: string; csv: string; dry_run?: boolean }) =>
+  importVocabWords: (payload: {
+    lang: string
+    csv: string
+    dry_run?: boolean
+    tag_learned?: boolean
+    learned_date?: string // YYYY-MM-DD
+  }) =>
     request<VocabImportResult>('/api/vocab/import', {
       method: 'POST',
       body: JSON.stringify(payload),

@@ -11,6 +11,8 @@ import {
   App as AntApp,
   Button,
   Card,
+  Checkbox,
+  DatePicker,
   Form,
   Input,
   Modal,
@@ -24,6 +26,7 @@ import {
   type TableProps,
 } from 'antd'
 import { useEffect, useState } from 'react'
+import dayjs from 'dayjs'
 import { ApiError, api, errorMessage, formatTime } from '../api'
 import { LANGS, langLabel, type VocabWord } from '../types'
 
@@ -112,6 +115,8 @@ export default function VocabPage() {
   const [importing, setImporting] = useState(false)
   const [importResult, setImportResult] = useState<string | null>(null)
   const [importErrors, setImportErrors] = useState<string[]>([])
+  const [importTagLearned, setImportTagLearned] = useState(false)
+  const [importLearnedDate, setImportLearnedDate] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -211,6 +216,8 @@ export default function VocabPage() {
     setImportCSV('')
     setImportResult(null)
     setImportErrors([])
+    setImportTagLearned(false)
+    setImportLearnedDate(null)
     setImportOpen(true)
   }
 
@@ -219,15 +226,30 @@ export default function VocabPage() {
       message.warning('请先选择 CSV 文件')
       return
     }
+    if (importTagLearned && !importLearnedDate) {
+      message.warning('标记学习记录需要选择学习日期')
+      return
+    }
     setImporting(true)
     setImportErrors([])
     setImportResult(null)
     try {
-      const res = await api.importVocabWords({ lang: importLang, csv: importCSV, dry_run: dryRun })
+      const res = await api.importVocabWords({
+        lang: importLang,
+        csv: importCSV,
+        dry_run: dryRun,
+        tag_learned: importTagLearned,
+        learned_date: importTagLearned ? importLearnedDate ?? undefined : undefined,
+      })
       if (res.dry_run) {
         setImportResult(`校验通过：共 ${res.total} 条词条，未写入数据库。`)
       } else {
-        setImportResult(`导入完成：新增 ${res.inserted} 条，更新 ${res.updated} 条。`)
+        let msg = `导入完成：新增 ${res.inserted} 条，更新 ${res.updated} 条。`
+        if (importTagLearned && res.learned_marked !== undefined) {
+          msg += `\n已标记为 ${importLearnedDate} 学习：成功 ${res.learned_marked} 条`
+          if (res.learned_ignored) msg += `（忽略 ${res.learned_ignored} 条）`
+        }
+        setImportResult(msg)
         setRefreshTick((t) => t + 1)
       }
     } catch (error) {
@@ -529,6 +551,25 @@ export default function VocabPage() {
               english_mean、example_de、source_md_path，其余列忽略。
             </p>
           </Upload.Dragger>
+          <Checkbox checked={importTagLearned} onChange={(e) => setImportTagLearned(e.target.checked)}>
+            同时标记为某天已学（让客户端的「最近五天新词」按指定日期回溯）
+          </Checkbox>
+          {importTagLearned && (
+            <Space direction="vertical" style={{ width: '100%', padding: '8px 12px', background: '#fafafa', borderRadius: 6 }} size={8}>
+              <Space>
+                <span style={{ width: 90 }}>学习日期</span>
+                <DatePicker
+                  size="small"
+                  value={importLearnedDate ? dayjs(importLearnedDate, 'YYYY-MM-DD') : null}
+                  onChange={(v) => setImportLearnedDate(v ? v.format('YYYY-MM-DD') : null)}
+                  placeholder="YYYY-MM-DD"
+                />
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  按服务器时区保存为当天 00:00
+                </Typography.Text>
+              </Space>
+            </Space>
+          )}
           {importName && (
             <Typography.Text type="secondary">
               已选择：{importName}（{langLabel(importLang)}）
