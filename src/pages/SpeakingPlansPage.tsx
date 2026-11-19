@@ -164,9 +164,8 @@ export default function SpeakingPlansPage() {
       grammarPoints.map((point) => ({
         value: point.key,
         label: `${point.label}${point.level ? ` · ${point.level}` : ''}${
-          point.patterns.length === 0 ? '（未配置判定规则，不可选）' : ''
+          point.patterns.length === 0 ? '（未配置判定规则，仅可提示）' : ''
         }`,
-        disabled: point.patterns.length === 0,
       })),
     [grammarPoints],
   )
@@ -181,7 +180,8 @@ export default function SpeakingPlansPage() {
       source_path: point.source_path,
       patterns: point.patterns,
       min_uses: current.min_uses ?? 1,
-      enforce: current.enforce === 'warn' ? 'warn' : 'block',
+      // 未配置判定规则的语法点只能作为提示，强制 warn
+      enforce: point.patterns.length === 0 ? 'warn' : current.enforce === 'warn' ? 'warn' : 'block',
       hint_parts: Array.isArray(current.hint_parts) ? current.hint_parts : [],
     })
   }
@@ -559,18 +559,30 @@ export default function SpeakingPlansPage() {
                       >
                         <InputNumber min={1} max={10} precision={0} style={{ width: '100%' }} />
                       </Form.Item>
-                      <Form.Item
-                        {...field}
-                        name={[field.name, 'enforce']}
-                        label="未达成处理"
-                        style={{ width: 130, marginBottom: 12 }}
-                      >
-                        <Select
-                          options={[
-                            { value: 'block', label: '阻断推进' },
-                            { value: 'warn', label: '仅提示' },
-                          ]}
-                        />
+                      <Form.Item noStyle shouldUpdate>
+                        {() => {
+                          const patterns = form.getFieldValue([
+                            'grammar_requirements',
+                            field.name,
+                            'patterns',
+                          ])
+                          const lacksPatterns = !Array.isArray(patterns) || patterns.length === 0
+                          return (
+                            <Form.Item
+                              {...field}
+                              name={[field.name, 'enforce']}
+                              label="未达成处理"
+                              style={{ width: 140, marginBottom: 12 }}
+                            >
+                              <Select
+                                options={[
+                                  { value: 'block', label: '阻断推进', disabled: lacksPatterns },
+                                  { value: 'warn', label: '仅提示' },
+                                ]}
+                              />
+                            </Form.Item>
+                          )
+                        }}
                       </Form.Item>
                       <Form.Item
                         {...field}
@@ -595,6 +607,21 @@ export default function SpeakingPlansPage() {
                         移除
                       </Button>
                     </Space>
+                    <Form.Item noStyle shouldUpdate>
+                      {() => {
+                        const patterns = form.getFieldValue([
+                          'grammar_requirements',
+                          field.name,
+                          'patterns',
+                        ])
+                        if (Array.isArray(patterns) && patterns.length > 0) return null
+                        return (
+                          <div style={{ fontSize: 12, color: '#B9770E', margin: '-4px 0 10px' }}>
+                            该语法点尚未配置判定规则，只能作为提示，不能设置为阻断。
+                          </div>
+                        )
+                      }}
+                    </Form.Item>
                   </div>
                 ))}
               </div>
